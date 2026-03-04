@@ -17,22 +17,28 @@ const USAGE = `
 neuroverse — CLI Governance Tool
 
 Commands:
-  init        Scaffold a new .nv-world.md template
-  bootstrap   Compile .nv-world.md → world JSON files
-  validate    Static analysis on world files
-  guard       Runtime governance evaluation (stdin → stdout)
+  init           Scaffold a new .nv-world.md template
+  bootstrap      Compile .nv-world.md → world JSON files
+  validate       Static analysis on world files
+  guard          Runtime governance evaluation (stdin → stdout)
+  derive         AI-assisted synthesis of .nv-world.md from markdown
+  configure-ai   Configure AI provider credentials for derive
 
 Usage:
   neuroverse init [--name "World Name"] [--output path]
   neuroverse bootstrap --input <.md> --output <dir> [--validate]
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
+  neuroverse derive --input <path> [--output <path>] [--dry-run]
+  neuroverse configure-ai --provider <name> --model <name> --api-key <key>
 
 Examples:
   neuroverse init --name "Customer Service Governance"
   neuroverse bootstrap --input ./world.nv-world.md --output ./world/ --validate
   neuroverse validate --world ./world/ --format summary
   echo '{"intent":"delete user data"}' | neuroverse guard --world ./world/ --trace
+  neuroverse derive --input ./docs/ --output ./derived.nv-world.md
+  neuroverse configure-ai --provider openai --model gpt-4.1-mini --api-key sk-...
 `.trim();
 
 async function main(): Promise<void> {
@@ -56,6 +62,14 @@ async function main(): Promise<void> {
     case 'guard': {
       const { main: guardMain } = await import('./guard');
       return guardMain(subArgs);
+    }
+    case 'derive': {
+      const { main: deriveMain } = await import('./derive');
+      return deriveMain(subArgs);
+    }
+    case 'configure-ai': {
+      const { main: configureAiMain } = await import('./configure-ai');
+      return configureAiMain(subArgs);
     }
     case '--help':
     case '-h':
