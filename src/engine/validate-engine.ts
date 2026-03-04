@@ -237,6 +237,9 @@ function checkGuardCoverage(world: WorldDefinition, findings: ValidateFinding[])
   const guards = world.guards?.guards ?? [];
 
   for (const invariant of world.invariants) {
+    // Prompt-enforced invariants are governed via synthesis prompts, not runtime guards
+    if (invariant.enforcement === 'prompt') continue;
+
     const coveringGuard = guards.find(
       g => g.invariant_ref === invariant.id && g.immutable,
     );
@@ -586,6 +589,9 @@ function checkOrphans(world: WorldDefinition, findings: ValidateFinding[]): void
     }
   }
   for (const outcome of world.outcomes?.computed_outcomes ?? []) {
+    // Externally-assigned outcomes are set by the engine, not by rules
+    if (outcome.assignment === 'external') continue;
+
     if (!effectTargets.has(outcome.id) && !outcome.derived_from) {
       findings.push(finding(
         `orphan-outcome-${outcome.id}`,

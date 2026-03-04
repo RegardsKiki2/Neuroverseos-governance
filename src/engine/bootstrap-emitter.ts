@@ -82,7 +82,7 @@ export function emitWorldDefinition(
   const invariants: Invariant[] = parsed.invariants.map(inv => ({
     id: inv.id,
     label: inv.label,
-    enforcement: 'structural' as const,
+    enforcement: (inv.enforcement === 'prompt' ? 'prompt' : 'structural') as Invariant['enforcement'],
     mutable: false as const,
   }));
 
@@ -232,6 +232,7 @@ export function emitWorldDefinition(
     if (o.range) outcome.range = o.range;
     if (o.display) outcome.display_as = o.display as ComputedOutcome['display_as'];
     if (o.primary) outcome.primary = o.primary;
+    if (o.assignment) outcome.assignment = o.assignment as ComputedOutcome['assignment'];
 
     return outcome;
   });

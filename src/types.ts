@@ -39,7 +39,7 @@ export interface WorldIdentity {
 export interface Invariant {
   id: string;
   label: string;
-  enforcement: 'structural';
+  enforcement: 'structural' | 'prompt';
   mutable: false;
 }
 
@@ -202,6 +202,7 @@ export interface ComputedOutcome {
   primary?: boolean;
   initial_value?: string;
   derived_from?: string;
+  assignment?: 'rule' | 'external';
   show_in_comparison: boolean;
   structural_indicator?: boolean;
 }

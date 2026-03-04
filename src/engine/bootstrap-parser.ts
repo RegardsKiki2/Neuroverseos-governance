@@ -221,7 +221,8 @@ function parseInvariants(content: string, startLine: number, issues: ParseIssue[
       const label = match[2].trim();
       const parens = match[3] ?? 'structural, immutable';
 
-      const enforcement = parens.includes('operational') ? 'operational' : 'structural';
+      const enforcement = parens.includes('prompt') ? 'prompt'
+        : parens.includes('operational') ? 'operational' : 'structural';
       const mutable = parens.includes('mutable') && !parens.includes('immutable');
 
       invariants.push({ id, label, enforcement, mutable, line: lineNum });
@@ -575,6 +576,7 @@ function parseOutcomes(content: string, startLine: number, issues: ParseIssue[])
 
     if (props.display) outcome.display = props.display;
     if (props.primary) outcome.primary = props.primary === 'true';
+    if (props.assignment) outcome.assignment = props.assignment;
 
     outcomes.push(outcome);
   }

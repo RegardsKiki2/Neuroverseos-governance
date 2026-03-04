@@ -19,11 +19,13 @@
   },
   "files": [
     "dist",
+    "dist/worlds",
     "LICENSE.md",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli/neuroverse.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/cli/neuroverse.ts --format esm,cjs --dts --clean && cp src/worlds/derivation-world.nv-world.md dist/worlds/derivation-world.nv-world.md",
+    "prebuild": "mkdir -p dist/worlds",
     "dev": "tsup src/index.ts src/cli/neuroverse.ts --format esm,cjs --dts --watch",
     "test": "vitest run",
     "test:watch": "vitest"

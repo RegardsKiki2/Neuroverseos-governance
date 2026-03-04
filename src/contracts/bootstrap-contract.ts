@@ -176,6 +176,7 @@ export interface ParsedOutcome {
   display?: string;
   label: string;
   primary?: boolean;
+  assignment?: string;
   line: number;
 }
 

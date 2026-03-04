@@ -80,3 +80,17 @@ export type {
 } from './contracts/bootstrap-contract';
 
 export { BOOTSTRAP_EXIT_CODES } from './contracts/bootstrap-contract';
+
+// ─── Derive Engine ──────────────────────────────────────────────────────────
+
+export { deriveWorld, extractWorldMarkdown } from './engine/derive-engine';
+
+export type {
+  DeriveResult,
+  DeriveExitCode,
+  CollectedSource,
+  AIProviderConfig,
+  AIProvider,
+} from './contracts/derive-contract';
+
+export { DERIVE_EXIT_CODES, CONFIGURE_AI_EXIT_CODES } from './contracts/derive-contract';
