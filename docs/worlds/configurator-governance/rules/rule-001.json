@@ -1,0 +1,26 @@
+{
+  "id": "thesis_anchor_missing",
+  "severity": "structural",
+  "label": "Thesis Anchor Missing",
+  "description": "A world without a clear, testable thesis has no anchor. Rules float free. Invariants have no purpose. The world cannot be validated.",
+  "order": 1,
+  "triggers": [
+    { "field": "thesis_clarity", "operator": "<", "value": 25, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.20 },
+    { "target": "thesis_anchored", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "world_integrity",
+    "operator": "<",
+    "value": 0.15,
+    "result": "GOVERNANCE_FAILURE"
+  },
+  "causal_translation": {
+    "trigger_text": "Thesis clarity is below 25% — the world has no testable structural claim.",
+    "rule_text": "Without a thesis, there is nothing to simulate. Rules become arbitrary constraints with no explanatory power.",
+    "shift_text": "The world loses its anchor. Every invariant, rule, and gate becomes unjustified.",
+    "effect_text": "World integrity reduced to 20% of baseline. Thesis anchor: MISSING."
+  }
+}

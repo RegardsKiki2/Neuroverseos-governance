@@ -1,0 +1,35 @@
+{
+  "id": "verification_advantage",
+  "severity": "structural",
+  "label": "Verification Advantage",
+  "description": "Strict verification creates new margin for verification and settlement layer businesses",
+  "order": 9,
+  "triggers": [
+    { "field": "verification_enforcement", "operator": "==", "value": "strict", "source": "assumption" }
+  ],
+  "effects_conditional": [
+    {
+      "condition_any": [
+        { "field": "margin_capture_layer", "operator": "==", "value": "verification", "source": "state" },
+        { "field": "revenue_model", "operator": "==", "value": "infrastructure", "source": "state" }
+      ],
+      "effects": [
+        { "target": "effective_margin", "operation": "add", "value": 0.20 },
+        { "target": "verification_bonus", "operation": "set", "value": 0.20 }
+      ]
+    },
+    {
+      "condition": { "field": "margin_capture_layer", "operator": "==", "value": "settlement", "source": "state" },
+      "effects": [
+        { "target": "effective_margin", "operation": "add", "value": 0.10 },
+        { "target": "verification_bonus", "operation": "set", "value": 0.10 }
+      ]
+    }
+  ],
+  "causal_translation": {
+    "trigger_text": "Verification enforcement is strict in this assumption profile.",
+    "rule_text": "Strict verification creates a new revenue-generating layer for businesses positioned in verification or settlement.",
+    "shift_text": "Verification becomes a structural advantage rather than a cost.",
+    "effect_text": "Verification layer: +20% margin. Settlement layer: +10% margin. Model structurally advantaged."
+  }
+}

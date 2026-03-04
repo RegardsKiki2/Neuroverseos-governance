@@ -1,0 +1,62 @@
+{
+  "profiles": {
+    "baseline": {
+      "name": "Human Navigation Economy",
+      "description": "Traditional browsing. Humans navigate, discover, and transact through attention-driven funnels.",
+      "is_default_baseline": true,
+      "parameters": {
+        "delegation_level": "manual",
+        "agent_optimization_priority": "convenience",
+        "verification_enforcement": "none",
+        "human_brand_influence": "high"
+      }
+    },
+    "delegated": {
+      "name": "Delegated Agent Economy",
+      "description": "Agents browse on behalf of humans. Navigation compressed. Attention layers bypassed.",
+      "is_default_alternative": true,
+      "parameters": {
+        "delegation_level": "delegated",
+        "agent_optimization_priority": "cost",
+        "verification_enforcement": "strict",
+        "human_brand_influence": "low"
+      }
+    },
+    "hybrid": {
+      "name": "Hybrid Transition",
+      "description": "Partial delegation. Some tasks automated, others human-directed. Brand still matters.",
+      "parameters": {
+        "delegation_level": "hybrid",
+        "agent_optimization_priority": "convenience",
+        "verification_enforcement": "partial",
+        "human_brand_influence": "medium"
+      }
+    }
+  },
+  "parameter_definitions": {
+    "delegation_level": {
+      "type": "enum",
+      "options": ["manual", "hybrid", "delegated"],
+      "label": "Delegation Level",
+      "description": "How much browsing and decision-making is delegated to agents"
+    },
+    "agent_optimization_priority": {
+      "type": "enum",
+      "options": ["cost", "convenience", "status", "safety"],
+      "label": "Agent Optimization Priority",
+      "description": "What agents optimize for on behalf of humans"
+    },
+    "verification_enforcement": {
+      "type": "enum",
+      "options": ["none", "partial", "strict"],
+      "label": "Verification Enforcement",
+      "description": "How strictly transactions require verification"
+    },
+    "human_brand_influence": {
+      "type": "enum",
+      "options": ["high", "medium", "low"],
+      "label": "Human Brand Influence",
+      "description": "How much brand loyalty persists in purchase decisions"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "cost_optimization_pressure",
+  "severity": "degradation",
+  "label": "Cost Optimization Pressure",
+  "description": "Cost-optimizing agents compress margins by eliminating process-dependent value extraction",
+  "order": 7,
+  "triggers": [
+    { "field": "agent_optimization_priority", "operator": "==", "value": "cost", "source": "assumption" },
+    { "field": "process_value_extraction", "operator": ">", "value": 40, "source": "state" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "multiply_dynamic", "value_formula": "1 - (process_value_extraction / 100 * 0.30)" }
+  ],
+  "causal_translation": {
+    "trigger_text": "Agents optimize for cost and your model extracts significant value from process steps (>40).",
+    "rule_text": "Cost-optimizing agents eliminate unnecessary process steps, reducing process-dependent revenue.",
+    "shift_text": "Higher process value extraction means more revenue at risk from optimization pressure.",
+    "effect_text": "Margin reduced proportionally to process dependency — up to 30% reduction at maximum process extraction."
+  }
+}

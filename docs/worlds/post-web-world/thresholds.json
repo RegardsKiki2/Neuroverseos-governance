@@ -1,0 +1,94 @@
+[
+  {
+    "id": "attention_neglect_crisis",
+    "force": "drift",
+    "variable": "attention_dependency_score",
+    "level": 35,
+    "message": "You've neglected attention dependency for too long. The market is shifting beneath your model and you weren't watching.",
+    "severity": "moderate",
+    "oneShot": true
+  },
+  {
+    "id": "margin_erosion_spiral",
+    "force": "drift",
+    "variable": "base_margin",
+    "level": 40,
+    "message": "Base margin has been under sustained pressure. Structural erosion is accelerating — recovery costs are compounding.",
+    "severity": "structural",
+    "oneShot": true,
+    "stateMutations": {
+      "base_margin": -0.03
+    }
+  },
+  {
+    "id": "process_concentration_trap",
+    "force": "concentration",
+    "variable": "process_value_extraction",
+    "level": 30,
+    "message": "You've repeatedly pushed process value extraction in the same direction. The model is becoming structurally rigid — pivoting will be expensive.",
+    "pathLock": "rapid_process_restructuring",
+    "severity": "moderate",
+    "oneShot": true
+  },
+  {
+    "id": "automation_overcommit",
+    "force": "concentration",
+    "variable": "automation_level",
+    "level": 35,
+    "message": "Aggressive automation investment has created dependency. Rolling back automation now would destabilize operations.",
+    "pathLock": "automation_rollback",
+    "severity": "moderate",
+    "oneShot": true
+  },
+  {
+    "id": "attention_path_lock",
+    "force": "path_bias",
+    "variable": "attention_dependency_score",
+    "level": 50,
+    "message": "Repeated moves on attention dependency have locked you into a structural position. Reversing course will cost significantly more than it would have earlier.",
+    "severity": "structural",
+    "oneShot": true
+  },
+  {
+    "id": "system_tension_warning",
+    "force": "tension",
+    "variable": "*",
+    "level": 25,
+    "message": "Multiple structural pressures are converging. The system is entering a stressed state — tradeoffs are sharpening and safe options are narrowing.",
+    "severity": "minor",
+    "oneShot": true
+  },
+  {
+    "id": "crisis_onset",
+    "force": "tension",
+    "variable": "*",
+    "level": 50,
+    "message": "The system has entered crisis. Hidden fragility across multiple variables has compounded into structural instability. Every decision now carries existential weight.",
+    "severity": "structural",
+    "oneShot": true
+  },
+  {
+    "id": "outcome_alignment_neglect",
+    "force": "drift",
+    "variable": "outcome_alignment",
+    "level": 30,
+    "message": "Outcome alignment has been neglected. In a delegated economy, models that don't deliver measurable outcomes become invisible to agents.",
+    "severity": "moderate",
+    "oneShot": true,
+    "stateMutations": {
+      "outcome_alignment": -5
+    }
+  },
+  {
+    "id": "tension_phase_structural_shock",
+    "force": "phase",
+    "variable": "tension",
+    "level": "high",
+    "message": "Structural strain has reached a critical threshold. The business model's hidden weaknesses are now manifesting as visible failures.",
+    "severity": "structural",
+    "oneShot": true,
+    "stateMutations": {
+      "base_margin": -0.05
+    }
+  }
+]

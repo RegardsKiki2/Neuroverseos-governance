@@ -1,0 +1,28 @@
+{
+  "id": "capture_layer_inaccessible_mid",
+  "severity": "structural",
+  "label": "Mid-Funnel Capture Layer Inaccessibility",
+  "description": "Mid-funnel capture layers become inaccessible when agents bypass navigation under high attention dependency",
+  "order": 1,
+  "triggers": [
+    { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" },
+    { "field": "margin_capture_layer", "operator": "==", "value": "mid_funnel", "source": "state" },
+    { "field": "attention_dependency_score", "operator": ">", "value": 50, "source": "state" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "multiply", "value": 0.25 },
+    { "target": "capture_layer_accessible", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "effective_margin",
+    "operator": "<",
+    "value": 0.15,
+    "result": "MODEL_COLLAPSES"
+  },
+  "causal_translation": {
+    "trigger_text": "Your model captures margin in the mid-funnel with high attention dependency (>50).",
+    "rule_text": "Under full delegation, agents bypass mid-funnel discovery layers entirely.",
+    "shift_text": "Your capture layer becomes structurally inaccessible.",
+    "effect_text": "Effective margin reduced to 25% of baseline — capture layer structurally removed."
+  }
+}

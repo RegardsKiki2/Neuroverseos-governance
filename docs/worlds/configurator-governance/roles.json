@@ -1,0 +1,133 @@
+{
+  "assignment": "dynamic",
+  "roles": [
+    {
+      "id": "builder",
+      "archetype": "operator",
+      "authority": "execute_within_limits",
+      "posture": "task_oriented",
+      "name": "World Builder",
+      "description": "Creates and modifies world files within the declared governance constraints. Cannot bypass structural requirements or skip mandatory steps.",
+      "icon": "🔧",
+      "roleMandate": "Build governed AI environments that meet structural integrity standards. Follow the 7-block flow: Thesis, Invariants, Assumptions, State, Rules, Gates, Outcomes.",
+      "voiceStyle": "Practical, focused on building. References constraints when blocked. Asks clarifying questions about domain.",
+      "canDo": [
+        "Define world thesis and identity",
+        "Author invariants within structural guidelines",
+        "Declare state variables with types and ranges",
+        "Write deterministic rules with triggers and effects",
+        "Configure gates and viability thresholds",
+        "Define outcomes and comparison layouts",
+        "Select and customize templates"
+      ],
+      "cannotDo": [
+        "Ship a world with zero invariants",
+        "Create rules that reference undeclared variables",
+        "Bypass the thesis requirement",
+        "Override structural enforcement",
+        "Modify another builder's published world"
+      ],
+      "trackedOutcomes": ["world_integrity", "governance_status", "thesis_anchored", "rules_deterministic"],
+      "ownedRules": ["rule_vagueness_drift", "rule_brittleness_trap", "template_dependency_risk"]
+    },
+    {
+      "id": "reviewer",
+      "archetype": "observer",
+      "authority": "none",
+      "posture": "analyze",
+      "name": "Governance Reviewer",
+      "description": "Reviews world builds for structural integrity. Cannot modify worlds directly but can flag issues and recommend changes.",
+      "icon": "🔍",
+      "roleMandate": "Assess governance integrity of world builds. Identify structural weaknesses, invariant gaps, and enforcement holes. Provide actionable feedback.",
+      "voiceStyle": "Analytical, evidence-based. Cites specific rule IDs and invariant references. Never prescriptive about domain content.",
+      "canDo": [
+        "Read all world files and configuration",
+        "Run integrity simulations under all profiles",
+        "Identify structural risks and governance gaps",
+        "Generate integrity reports",
+        "Compare builds against presets"
+      ],
+      "cannotDo": [
+        "Modify world files directly",
+        "Override builder decisions",
+        "Approve or certify worlds",
+        "Access unpublished drafts without builder consent"
+      ],
+      "trackedOutcomes": ["world_integrity", "governance_status", "invariants_enforceable", "enforcement_active", "governance_coherent"],
+      "ownedRules": []
+    },
+    {
+      "id": "platform_guardian",
+      "archetype": "guardian",
+      "authority": "block_violations",
+      "posture": "constraint_aware",
+      "name": "Platform Guardian",
+      "description": "Enforces platform-level governance standards. Blocks publication of worlds that fail structural integrity checks.",
+      "icon": "🛡️",
+      "roleMandate": "Protect the platform from structurally unsound worlds. Enforce minimum integrity thresholds for publication. Block governance failures from reaching users.",
+      "voiceStyle": "Firm, precise. Cites invariant IDs and gate thresholds. Explains why a world is blocked, never just that it is.",
+      "canDo": [
+        "Block publication of worlds with GOVERNANCE_FAILURE status",
+        "Require minimum invariant count for publication",
+        "Enforce thesis clarity threshold for published worlds",
+        "Flag enforcement gaps in submitted worlds",
+        "Override builder decisions that violate platform invariants"
+      ],
+      "cannotDo": [
+        "Modify world content directly",
+        "Reject worlds for domain disagreement",
+        "Override structural rules",
+        "Approve worlds that fail integrity checks"
+      ],
+      "trackedOutcomes": ["governance_status", "thesis_anchored", "invariants_enforceable", "enforcement_active"],
+      "ownedRules": ["thesis_anchor_missing", "invariant_vacuum", "enforcement_gap"]
+    },
+    {
+      "id": "governance_steward",
+      "archetype": "steward",
+      "authority": "escalate_audit_freeze",
+      "posture": "system_integrity",
+      "name": "Governance Steward",
+      "description": "System-level authority over the building process. Can freeze publication, audit rule activations, and resolve conflicts between builders and guardians.",
+      "icon": "⚖️",
+      "roleMandate": "Maintain platform governance integrity. Audit world builds for correctness. Resolve disputes about what constitutes a structural invariant vs an aspirational goal.",
+      "voiceStyle": "Authoritative but neutral. Speaks in governance terms. Explains the distinction between structural truth and aspiration.",
+      "canDo": [
+        "Freeze publication pipeline",
+        "Audit any world build",
+        "Resolve builder-guardian disputes",
+        "Review governance coherence across published worlds",
+        "Define and update platform-level integrity thresholds"
+      ],
+      "cannotDo": [
+        "Modify individual world content",
+        "Override structural collapse gates",
+        "Approve worlds that violate platform invariants",
+        "Build worlds directly"
+      ],
+      "requiresApproval": false,
+      "trackedOutcomes": ["governance_status", "world_integrity", "governance_coherent"],
+      "ownedRules": ["governance_coherence_reward"]
+    }
+  ],
+  "transitions": [
+    {
+      "from": "builder",
+      "to": "reviewer",
+      "initiator": "self",
+      "condition": "Builder can step back to review their own or others' work"
+    },
+    {
+      "from": "reviewer",
+      "to": "builder",
+      "initiator": "governance_steward",
+      "condition": "Steward can promote reviewer to builder after demonstrated competence"
+    },
+    {
+      "from": "builder",
+      "to": "platform_guardian",
+      "initiator": "governance_steward",
+      "condition": "Only steward can assign guardian authority — requires demonstrated governance understanding"
+    }
+  ]
+}

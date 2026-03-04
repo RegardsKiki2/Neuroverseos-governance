@@ -1,0 +1,26 @@
+{
+  "id": "invariant_vacuum",
+  "severity": "structural",
+  "label": "Invariant Vacuum",
+  "description": "A world with zero invariants has no constitution. Any behavior is permitted. Governance is empty.",
+  "order": 2,
+  "triggers": [
+    { "field": "invariant_count", "operator": "==", "value": 0, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.15 },
+    { "target": "invariants_enforceable", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "world_integrity",
+    "operator": "<",
+    "value": 0.15,
+    "result": "GOVERNANCE_FAILURE"
+  },
+  "causal_translation": {
+    "trigger_text": "The world has zero declared invariants.",
+    "rule_text": "Invariants are the constitution. Without them, there are no non-negotiable truths. The AI can say or do anything.",
+    "shift_text": "Governance collapses to empty constraint space. The world is ungoverned.",
+    "effect_text": "World integrity reduced to 15% of baseline. Invariants: UNENFORCEABLE."
+  }
+}

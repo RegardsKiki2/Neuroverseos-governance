@@ -1,0 +1,32 @@
+{
+  "id": "brand_buffer",
+  "severity": "advantage",
+  "label": "Brand Loyalty Buffer",
+  "description": "Strong brand loyalty provides margin buffer, diminished under delegation",
+  "order": 8,
+  "triggers": [
+    { "field": "human_brand_influence", "operator": "!=", "value": "low", "source": "assumption" }
+  ],
+  "effects_conditional": [
+    {
+      "condition": { "field": "human_brand_influence", "operator": "==", "value": "high", "source": "assumption" },
+      "and": { "field": "delegation_level", "operator": "==", "value": "manual", "source": "assumption" },
+      "effects": [{ "target": "effective_margin", "operation": "add", "value": 0.06 }]
+    },
+    {
+      "condition": { "field": "human_brand_influence", "operator": "==", "value": "high", "source": "assumption" },
+      "and": { "field": "delegation_level", "operator": "!=", "value": "manual", "source": "assumption" },
+      "effects": [{ "target": "effective_margin", "operation": "add", "value": 0.02 }]
+    },
+    {
+      "condition": { "field": "human_brand_influence", "operator": "==", "value": "medium", "source": "assumption" },
+      "effects": [{ "target": "effective_margin", "operation": "add", "value": 0.01 }]
+    }
+  ],
+  "causal_translation": {
+    "trigger_text": "Brand influence is present in this assumption profile.",
+    "rule_text": "Brand loyalty buffers margin — but agents optimize on specs, not brand affinity.",
+    "shift_text": "Under manual navigation, brand provides strong buffer. Under delegation, buffer diminishes.",
+    "effect_text": "High brand + manual = +6%. High brand + delegation = +2%. Medium brand = +1%."
+  }
+}

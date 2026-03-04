@@ -1,0 +1,87 @@
+{
+  "computed_outcomes": [
+    {
+      "id": "effective_margin",
+      "type": "number",
+      "range": [0, 1],
+      "display_as": "percentage",
+      "label": "Effective Margin",
+      "primary": true,
+      "initial_value": "base_margin",
+      "show_in_comparison": true
+    },
+    {
+      "id": "viability_status",
+      "type": "enum",
+      "options": ["THRIVING", "STABLE", "COMPRESSED", "CRITICAL", "MODEL_COLLAPSES"],
+      "label": "Viability Status",
+      "derived_from": "gates.json",
+      "show_in_comparison": true
+    },
+    {
+      "id": "capture_layer_accessible",
+      "type": "boolean",
+      "default": true,
+      "label": "Capture Layer Access",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "ad_revenue_accessible",
+      "type": "boolean",
+      "default": true,
+      "label": "Revenue Channel Status",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "discovery_funnel_removed",
+      "type": "boolean",
+      "default": false,
+      "label": "Discovery Funnel Status",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "effective_steps",
+      "type": "number",
+      "default": 10,
+      "label": "Effective Journey Steps",
+      "show_in_comparison": true
+    },
+    {
+      "id": "conversion_multiplier",
+      "type": "number",
+      "default": 1.0,
+      "label": "Conversion Rate Multiplier",
+      "show_in_comparison": true
+    },
+    {
+      "id": "verification_bonus",
+      "type": "number",
+      "default": 0,
+      "display_as": "percentage",
+      "label": "Verification Bonus",
+      "show_in_comparison": true
+    },
+    {
+      "id": "outcome_bonus",
+      "type": "number",
+      "default": 0,
+      "display_as": "percentage",
+      "label": "Outcome Alignment Bonus",
+      "show_in_comparison": false
+    }
+  ],
+  "comparison_layout": {
+    "primary_card": "effective_margin",
+    "status_badge": "viability_status",
+    "structural_indicators": [
+      "capture_layer_accessible",
+      "ad_revenue_accessible",
+      "effective_steps",
+      "conversion_multiplier",
+      "verification_bonus"
+    ]
+  }
+}

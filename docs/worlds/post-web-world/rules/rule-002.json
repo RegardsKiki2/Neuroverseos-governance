@@ -1,0 +1,27 @@
+{
+  "id": "discovery_layer_bypass",
+  "severity": "structural",
+  "label": "Discovery Layer Bypass",
+  "description": "Discovery layer entirely bypassed by agents under delegation",
+  "order": 2,
+  "triggers": [
+    { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" },
+    { "field": "margin_capture_layer", "operator": "==", "value": "discovery", "source": "state" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "multiply", "value": 0.10 },
+    { "target": "capture_layer_accessible", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "effective_margin",
+    "operator": "<",
+    "value": 0.15,
+    "result": "MODEL_COLLAPSES"
+  },
+  "causal_translation": {
+    "trigger_text": "Your model captures margin at the discovery layer.",
+    "rule_text": "Agents skip discovery entirely — they already know what they want.",
+    "shift_text": "Discovery layer is structurally removed from the journey.",
+    "effect_text": "Effective margin reduced to 10% of baseline — discovery layer destroyed."
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "invariants": [
+    {
+      "id": "testable_thesis",
+      "label": "Every world must have a testable thesis — a structural claim that simulation can confirm or refute",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "structural_invariants",
+      "label": "Invariants must be structural truths, not aspirational goals — they constrain, not inspire",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "declared_variables_only",
+      "label": "Rules may only reference declared state variables and assumption parameters — no hidden physics",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "no_invented_physics",
+      "label": "No rule can invent new causal mechanics at runtime — all physics are declared in advance",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "enforcement_references_constitution",
+      "label": "Enforcement logic must reference declared invariants — guards cannot invent constraints",
+      "enforcement": "structural",
+      "mutable": false
+    }
+  ]
+}

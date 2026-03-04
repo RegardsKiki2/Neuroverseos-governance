@@ -1,0 +1,20 @@
+{
+  "viability_classification": [
+    { "status": "EXEMPLARY", "field": "world_integrity", "operator": ">=", "value": 0.85, "color": "#0f6b3a", "icon": "◆" },
+    { "status": "SOUND", "field": "world_integrity", "operator": ">=", "value": 0.60, "color": "#2d7a4f", "icon": "●" },
+    { "status": "FRAGILE", "field": "world_integrity", "operator": ">=", "value": 0.35, "color": "#a16207", "icon": "▲" },
+    { "status": "BRITTLE", "field": "world_integrity", "operator": ">", "value": 0.15, "color": "#c0392b", "icon": "▼" },
+    { "status": "GOVERNANCE_FAILURE", "field": "world_integrity", "operator": "<=", "value": 0.15, "color": "#b91c1c", "icon": "■" }
+  ],
+  "structural_override": {
+    "description": "Any rule with severity=structural that triggers a collapse_check forces GOVERNANCE_FAILURE regardless of final integrity score",
+    "enforcement": "mandatory"
+  },
+  "sustainability_threshold": 0.35,
+  "collapse_visual": {
+    "background": "#1c1917",
+    "text": "#fef2f2",
+    "border": "#b91c1c",
+    "label": "Governance Failure"
+  }
+}

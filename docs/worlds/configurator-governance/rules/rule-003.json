@@ -1,0 +1,21 @@
+{
+  "id": "rule_vagueness_drift",
+  "severity": "degradation",
+  "label": "Rule Vagueness Drift",
+  "description": "Rules with low specificity produce unpredictable simulation behavior. Triggers match too broadly, effects are unclear.",
+  "order": 3,
+  "triggers": [
+    { "field": "rule_specificity", "operator": "<", "value": 30, "source": "state" },
+    { "field": "rule_count", "operator": ">", "value": 3, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.60 },
+    { "target": "rules_deterministic", "operation": "set", "value": false }
+  ],
+  "causal_translation": {
+    "trigger_text": "Rule specificity is below 30% with more than 3 rules declared.",
+    "rule_text": "Vague rules match too many scenarios. The simulation becomes unpredictable — users cannot reason about what will happen.",
+    "shift_text": "Rule behavior becomes non-deterministic from the user's perspective. Trust erodes.",
+    "effect_text": "World integrity reduced by 40%. Rules: NON-DETERMINISTIC."
+  }
+}

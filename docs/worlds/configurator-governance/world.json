@@ -1,0 +1,26 @@
+{
+  "world_id": "configurator_governance_v1",
+  "name": "The Configurator Governance World",
+  "thesis": "The structural integrity of a governed AI environment depends entirely on the discipline of the building process. Rushed builds, missing invariants, vague rules, and absent enforcement produce fragile worlds that collapse under real use.",
+  "version": "1.0.0",
+  "runtime_mode": "SIMULATION",
+  "default_assumption_profile": "careful_builder",
+  "default_alternative_profile": "fast_ship",
+  "modules": [
+    "thesis_anchor_missing",
+    "invariant_vacuum",
+    "rule_vagueness_drift",
+    "rule_brittleness_trap",
+    "enforcement_gap",
+    "role_confusion",
+    "testing_quality_buffer",
+    "expert_efficiency_bonus",
+    "template_dependency_risk",
+    "governance_coherence_reward"
+  ],
+  "players": {
+    "thinking_space": true,
+    "experience_space": true,
+    "action_space": true
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "neuroverse-governance",
+  "version": "0.1.0",
+  "description": "Deterministic governance engine for AI agents — evaluate events against world definitions with full audit trace",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "neuroverse",
+    "governance",
+    "guard",
+    "deterministic",
+    "rule-engine",
+    "ai-governance",
+    "ai-agents",
+    "compliance",
+    "audit",
+    "world-engine"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuroverseos/neuroverseos-governance"
+  },
+  "homepage": "https://neuroverseos.com"
+}

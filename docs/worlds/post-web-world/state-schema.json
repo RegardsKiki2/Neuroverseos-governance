@@ -1,0 +1,159 @@
+{
+  "variables": {
+    "revenue_model": {
+      "type": "enum",
+      "options": ["ads", "referral", "subscription", "transaction_fee", "data", "infrastructure"],
+      "default": "ads",
+      "mutable": true,
+      "label": "Revenue Model",
+      "description": "Primary revenue mechanism"
+    },
+    "margin_capture_layer": {
+      "type": "enum",
+      "options": ["discovery", "mid_funnel", "settlement", "verification", "orchestration"],
+      "default": "mid_funnel",
+      "mutable": true,
+      "label": "Margin Capture Layer",
+      "description": "Where in the value chain margin is extracted"
+    },
+    "attention_dependency_score": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 80,
+      "mutable": true,
+      "label": "Attention Dependency",
+      "description": "How reliant the model is on human attention and discovery",
+      "play_sensitivity": {
+        "driftWeight": 0.7,
+        "concentrationWeight": 0.9,
+        "volatilityWeight": 0.8,
+        "recoveryResistance": 0.6
+      }
+    },
+    "automation_level": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 20,
+      "mutable": true,
+      "label": "Automation Level",
+      "description": "Degree of automated value delivery",
+      "play_sensitivity": {
+        "driftWeight": 0.4,
+        "concentrationWeight": 0.7,
+        "volatilityWeight": 0.5,
+        "recoveryResistance": 0.4
+      }
+    },
+    "process_value_extraction": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60,
+      "mutable": true,
+      "label": "Process Value Extraction",
+      "description": "Revenue derived from process steps rather than outcomes",
+      "play_sensitivity": {
+        "driftWeight": 0.8,
+        "concentrationWeight": 0.6,
+        "volatilityWeight": 0.7,
+        "recoveryResistance": 0.8
+      }
+    },
+    "outcome_alignment": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 20,
+      "mutable": true,
+      "label": "Outcome Alignment",
+      "description": "How directly the model delivers measurable outcomes",
+      "play_sensitivity": {
+        "driftWeight": 0.5,
+        "concentrationWeight": 0.5,
+        "volatilityWeight": 0.4,
+        "recoveryResistance": 0.3
+      }
+    },
+    "base_margin": {
+      "type": "number",
+      "min": 0.05,
+      "max": 0.90,
+      "step": 0.01,
+      "default": 0.35,
+      "mutable": true,
+      "label": "Base Margin",
+      "description": "Starting margin before governance effects",
+      "display_as": "percentage",
+      "play_sensitivity": {
+        "driftWeight": 0.9,
+        "concentrationWeight": 0.8,
+        "volatilityWeight": 0.9,
+        "recoveryResistance": 0.7
+      }
+    }
+  },
+  "presets": {
+    "Ad-Funded Publisher": {
+      "description": "High attention dependency, mid-funnel capture, ad revenue",
+      "values": {
+        "revenue_model": "ads",
+        "margin_capture_layer": "mid_funnel",
+        "attention_dependency_score": 85,
+        "automation_level": 15,
+        "process_value_extraction": 60,
+        "outcome_alignment": 20,
+        "base_margin": 0.35
+      }
+    },
+    "SaaS Platform": {
+      "description": "Low attention dependency, orchestration layer, subscription revenue",
+      "values": {
+        "revenue_model": "subscription",
+        "margin_capture_layer": "orchestration",
+        "attention_dependency_score": 30,
+        "automation_level": 65,
+        "process_value_extraction": 35,
+        "outcome_alignment": 72,
+        "base_margin": 0.72
+      }
+    },
+    "E-Commerce Marketplace": {
+      "description": "High attention dependency, mid-funnel capture, transaction fees",
+      "values": {
+        "revenue_model": "transaction_fee",
+        "margin_capture_layer": "mid_funnel",
+        "attention_dependency_score": 72,
+        "automation_level": 28,
+        "process_value_extraction": 55,
+        "outcome_alignment": 30,
+        "base_margin": 0.18
+      }
+    },
+    "Verification Service": {
+      "description": "Low attention dependency, verification layer, infrastructure revenue",
+      "values": {
+        "revenue_model": "infrastructure",
+        "margin_capture_layer": "verification",
+        "attention_dependency_score": 8,
+        "automation_level": 85,
+        "process_value_extraction": 12,
+        "outcome_alignment": 92,
+        "base_margin": 0.45
+      }
+    },
+    "Affiliate Network": {
+      "description": "Very high attention dependency, discovery layer, referral revenue",
+      "values": {
+        "revenue_model": "referral",
+        "margin_capture_layer": "discovery",
+        "attention_dependency_score": 90,
+        "automation_level": 20,
+        "process_value_extraction": 70,
+        "outcome_alignment": 15,
+        "base_margin": 0.28
+      }
+    }
+  }
+}

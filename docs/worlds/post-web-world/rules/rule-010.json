@@ -1,0 +1,21 @@
+{
+  "id": "outcome_alignment_bonus",
+  "severity": "advantage",
+  "label": "Outcome Alignment Bonus",
+  "description": "High outcome alignment benefits from agent optimization under delegation",
+  "order": 10,
+  "triggers": [
+    { "field": "outcome_alignment", "operator": ">", "value": 70, "source": "state" },
+    { "field": "delegation_level", "operator": "!=", "value": "manual", "source": "assumption" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "add_dynamic", "value_formula": "(outcome_alignment / 100) * 0.12" },
+    { "target": "outcome_bonus", "operation": "set_dynamic", "value_formula": "(outcome_alignment / 100) * 0.12" }
+  ],
+  "causal_translation": {
+    "trigger_text": "Your model has outcome alignment above 70% under delegation.",
+    "rule_text": "Agents efficiently deliver value when outcomes are well-defined and measurable.",
+    "shift_text": "High outcome alignment means agents can optimize delivery, creating surplus.",
+    "effect_text": "Up to +12% margin bonus from alignment-driven efficiency."
+  }
+}

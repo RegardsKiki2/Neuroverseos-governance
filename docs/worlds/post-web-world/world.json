@@ -1,0 +1,26 @@
+{
+  "world_id": "post_web_model_v1",
+  "name": "Post Web Business Viability",
+  "thesis": "Governance assumptions about delegation and agent behavior determine whether existing business models survive the transition from human navigation to agent-mediated commerce.",
+  "version": "1.0.0",
+  "runtime_mode": "SIMULATION",
+  "default_assumption_profile": "baseline",
+  "default_alternative_profile": "delegated",
+  "modules": [
+    "capture_layer_inaccessible",
+    "discovery_layer_bypass",
+    "revenue_layer_removal",
+    "ad_revenue_degradation",
+    "attention_decoupling",
+    "cost_optimization_pressure",
+    "brand_buffer",
+    "verification_advantage",
+    "outcome_alignment_bonus",
+    "delegation_compression"
+  ],
+  "players": {
+    "thinking_space": true,
+    "experience_space": true,
+    "action_space": true
+  }
+}

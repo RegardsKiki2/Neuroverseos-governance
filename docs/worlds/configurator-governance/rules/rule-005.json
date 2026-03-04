@@ -1,0 +1,27 @@
+{
+  "id": "enforcement_gap",
+  "severity": "structural",
+  "label": "Enforcement Gap",
+  "description": "A world with invariants but no enforcement has a constitution that no one enforces. Governance exists on paper but not in practice.",
+  "order": 5,
+  "triggers": [
+    { "field": "enforcement_depth", "operator": "==", "value": "none", "source": "state" },
+    { "field": "invariant_count", "operator": ">", "value": 0, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.40 },
+    { "target": "enforcement_active", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "world_integrity",
+    "operator": "<",
+    "value": 0.15,
+    "result": "GOVERNANCE_FAILURE"
+  },
+  "causal_translation": {
+    "trigger_text": "Enforcement depth is 'none' but invariants are declared.",
+    "rule_text": "Declaring invariants without enforcement is constitutional theater. The words exist but nothing enforces them.",
+    "shift_text": "The gap between declared governance and actual governance becomes total.",
+    "effect_text": "World integrity reduced to 40% of baseline. Enforcement: INACTIVE."
+  }
+}

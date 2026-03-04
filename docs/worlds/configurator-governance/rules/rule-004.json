@@ -1,0 +1,19 @@
+{
+  "id": "rule_brittleness_trap",
+  "severity": "degradation",
+  "label": "Rule Brittleness Trap",
+  "description": "Overly specific rules break on edge cases. The world only works for the exact scenarios the builder tested.",
+  "order": 4,
+  "triggers": [
+    { "field": "rule_specificity", "operator": ">", "value": 80, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.70 }
+  ],
+  "causal_translation": {
+    "trigger_text": "Rule specificity exceeds 80% — rules are extremely narrow.",
+    "rule_text": "Overly specific rules are brittle. They work perfectly for the builder's test cases but break on any novel input.",
+    "shift_text": "The world becomes fragile. It works in demos but fails in real use.",
+    "effect_text": "World integrity reduced by 30%. Rules are brittle."
+  }
+}

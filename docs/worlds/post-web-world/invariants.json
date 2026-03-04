@@ -1,0 +1,34 @@
+{
+  "invariants": [
+    {
+      "id": "rev_exceeds_cost",
+      "label": "Revenue must exceed cost to survive",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "agent_optimization",
+      "label": "Agents optimize declared human priorities",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "delegation_compression",
+      "label": "Delegation compresses navigation layers",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "attention_requires_human",
+      "label": "Attention capture requires human navigation",
+      "enforcement": "structural",
+      "mutable": false
+    },
+    {
+      "id": "inaccessible_margin_collapses",
+      "label": "Margin extracted from inaccessible layers collapses",
+      "enforcement": "structural",
+      "mutable": false
+    }
+  ]
+}

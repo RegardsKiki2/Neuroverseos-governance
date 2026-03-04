@@ -1,0 +1,19 @@
+{
+  "id": "role_confusion",
+  "severity": "degradation",
+  "label": "Role Confusion",
+  "description": "Poor role separation means multiple agents can take the same actions with no clear authority hierarchy. Conflicts become unresolvable.",
+  "order": 6,
+  "triggers": [
+    { "field": "role_separation", "operator": "<", "value": 30, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.75 }
+  ],
+  "causal_translation": {
+    "trigger_text": "Role separation is below 30% — authorities overlap significantly.",
+    "rule_text": "When all roles can do everything, there is no governance. Authority conflicts become unresolvable because no one has clear jurisdiction.",
+    "shift_text": "Multi-agent scenarios degrade into chaos. The Action Space becomes uncoordinated.",
+    "effect_text": "World integrity reduced by 25%. Role authorities are confused."
+  }
+}

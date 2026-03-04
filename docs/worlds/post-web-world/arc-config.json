@@ -1,0 +1,8 @@
+{
+  "driftRate": 0.06,
+  "concentrationThreshold": 3,
+  "pathBiasWindow": 3,
+  "crisisActivationTension": 55,
+  "phaseEscalationRate": 1.6,
+  "maxTurns": 50
+}

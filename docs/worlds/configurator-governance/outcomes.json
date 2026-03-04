@@ -1,0 +1,73 @@
+{
+  "computed_outcomes": [
+    {
+      "id": "world_integrity",
+      "type": "number",
+      "range": [0, 1],
+      "display_as": "percentage",
+      "label": "World Integrity Score",
+      "primary": true,
+      "initial_value": "base_integrity",
+      "show_in_comparison": true
+    },
+    {
+      "id": "governance_status",
+      "type": "enum",
+      "options": ["EXEMPLARY", "SOUND", "FRAGILE", "BRITTLE", "GOVERNANCE_FAILURE"],
+      "label": "Governance Status",
+      "derived_from": "gates.json",
+      "show_in_comparison": true
+    },
+    {
+      "id": "thesis_anchored",
+      "type": "boolean",
+      "default": true,
+      "label": "Thesis Anchored",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "invariants_enforceable",
+      "type": "boolean",
+      "default": true,
+      "label": "Invariants Enforceable",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "rules_deterministic",
+      "type": "boolean",
+      "default": true,
+      "label": "Rules Deterministic",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "enforcement_active",
+      "type": "boolean",
+      "default": true,
+      "label": "Enforcement Active",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    },
+    {
+      "id": "governance_coherent",
+      "type": "boolean",
+      "default": false,
+      "label": "Governance Coherent",
+      "show_in_comparison": true,
+      "structural_indicator": true
+    }
+  ],
+  "comparison_layout": {
+    "primary_card": "world_integrity",
+    "status_badge": "governance_status",
+    "structural_indicators": [
+      "thesis_anchored",
+      "invariants_enforceable",
+      "rules_deterministic",
+      "enforcement_active",
+      "governance_coherent"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "testing_quality_buffer",
+  "severity": "advantage",
+  "label": "Testing Quality Buffer",
+  "description": "Comprehensive testing catches rule conflicts, edge cases, and invariant violations before users encounter them.",
+  "order": 7,
+  "triggers": [
+    { "field": "testing_coverage", "operator": ">", "value": 60, "source": "state" }
+  ],
+  "effects_conditional": [
+    {
+      "condition": { "field": "testing_coverage", "operator": ">", "value": 80, "source": "state" },
+      "effects": [
+        { "target": "world_integrity", "operation": "add", "value": 0.15 }
+      ]
+    },
+    {
+      "condition": { "field": "testing_coverage", "operator": "<=", "value": 80, "source": "state" },
+      "effects": [
+        { "target": "world_integrity", "operation": "add", "value": 0.08 }
+      ]
+    }
+  ],
+  "causal_translation": {
+    "trigger_text": "Testing coverage exceeds 60%.",
+    "rule_text": "Testing is the only way to verify that the world actually behaves as intended. It catches rule conflicts before users do.",
+    "shift_text": "The world becomes robust. Edge cases are handled. Users trust the simulation.",
+    "effect_text": ">80% testing: +15% integrity. 60-80% testing: +8% integrity."
+  }
+}

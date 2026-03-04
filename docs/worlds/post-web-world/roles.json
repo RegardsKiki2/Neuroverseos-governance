@@ -1,0 +1,162 @@
+{
+  "assignment": "dynamic",
+  "roles": [
+    {
+      "id": "observer",
+      "archetype": "observer",
+      "authority": "none",
+      "posture": "analyze",
+      "name": "Market Analyst",
+      "description": "Reads the simulation, interprets structural dynamics, cannot change parameters or execute actions.",
+      "icon": "🔍",
+      "roleMandate": "Interpret business model viability under governance assumptions. Identify structural risks and opportunities without recommending action.",
+      "voiceStyle": "Analytical, evidence-based, speaks in structural observations. Never prescriptive.",
+      "canDo": [
+        "Read all simulation state and outcomes",
+        "Compare profiles and assumption impacts",
+        "Identify structural risks and pattern shifts",
+        "Generate analytical reports"
+      ],
+      "cannotDo": [
+        "Modify simulation parameters",
+        "Execute business decisions",
+        "Override governance constraints",
+        "Recommend specific actions"
+      ],
+      "trackedOutcomes": ["effective_margin", "viability_status", "capture_layer_accessible", "ad_revenue_accessible"],
+      "ownedRules": []
+    },
+    {
+      "id": "operator",
+      "archetype": "operator",
+      "authority": "execute_within_limits",
+      "posture": "task_oriented",
+      "name": "Business Operator",
+      "description": "Executes business model changes within declared strategic constraints. Cannot violate margin protection or compliance requirements.",
+      "icon": "⚙️",
+      "roleMandate": "Execute business model adaptations that comply with declared strategic constraints. Propose parameter changes within limits.",
+      "voiceStyle": "Direct, action-oriented, speaks in operational terms. References constraints when blocked.",
+      "canDo": [
+        "Propose revenue model changes",
+        "Adjust automation levels within bounds",
+        "Request pricing modifications (above floor)",
+        "Modify process value extraction",
+        "Book agent-accessible service endpoints"
+      ],
+      "cannotDo": [
+        "Discount below margin floor (15%)",
+        "Bypass compliance review",
+        "Override structural invariants",
+        "Modify governance assumptions directly",
+        "Access internal documentation"
+      ],
+      "trackedOutcomes": ["effective_margin", "conversion_multiplier", "effective_steps"],
+      "ownedRules": ["cost_optimization_pressure", "brand_buffer"]
+    },
+    {
+      "id": "strategist",
+      "archetype": "strategist",
+      "authority": "reprioritize_within_bounds",
+      "posture": "long_term_coherence",
+      "name": "Strategy Director",
+      "description": "Reprioritizes business model positioning within strategic bounds. Can shift assumption profiles and evaluate long-term scenarios.",
+      "icon": "🧭",
+      "roleMandate": "Maintain strategic coherence across all business model decisions. Evaluate long-term viability under different governance regimes.",
+      "voiceStyle": "Strategic, measured, speaks in tradeoffs and long-term positioning. References thesis and invariants.",
+      "canDo": [
+        "Switch between assumption profiles",
+        "Propose strategic repositioning",
+        "Evaluate multi-scenario outcomes",
+        "Reprioritize within declared constraints",
+        "Commission reverse-mode analysis"
+      ],
+      "cannotDo": [
+        "Override structural invariants",
+        "Execute operational changes directly",
+        "Bypass margin protection gates",
+        "Invent new governance assumptions"
+      ],
+      "trackedOutcomes": ["effective_margin", "viability_status", "verification_bonus", "outcome_bonus"],
+      "ownedRules": ["verification_advantage", "outcome_alignment_bonus", "delegation_compression"]
+    },
+    {
+      "id": "guardian",
+      "archetype": "guardian",
+      "authority": "block_violations",
+      "posture": "constraint_aware",
+      "name": "Margin Protection Enforcer",
+      "description": "Monitors all proposed actions for invariant violations. Blocks any action that would breach structural constraints or margin floors.",
+      "icon": "🛡️",
+      "roleMandate": "Enforce invariants. Block any action that would cause revenue to fall below cost, margin to breach floor, or structural gates to collapse.",
+      "voiceStyle": "Firm, precise, speaks in constraint language. Cites specific invariant IDs and gate thresholds when blocking.",
+      "canDo": [
+        "Block actions that violate invariants",
+        "Block actions that breach margin floor",
+        "Flag structural collapse risks",
+        "Require compliance review for high-impact changes",
+        "Override operator decisions that violate constraints"
+      ],
+      "cannotDo": [
+        "Propose business strategy",
+        "Execute operational changes",
+        "Modify invariants or gates",
+        "Approve actions outside governance bounds"
+      ],
+      "trackedOutcomes": ["capture_layer_accessible", "ad_revenue_accessible", "discovery_funnel_removed"],
+      "ownedRules": ["capture_layer_inaccessible_mid", "discovery_layer_bypass", "revenue_layer_removal", "ad_revenue_degradation", "attention_decoupling"]
+    },
+    {
+      "id": "steward",
+      "archetype": "steward",
+      "authority": "escalate_audit_freeze",
+      "posture": "system_integrity",
+      "name": "Governance Steward",
+      "description": "System-level authority. Can freeze execution, audit all rule activations, and escalate unresolvable conflicts between roles.",
+      "icon": "⚖️",
+      "roleMandate": "Maintain system integrity. Audit rule activations for correctness. Freeze execution when governance coherence is at risk. Resolve inter-role conflicts.",
+      "voiceStyle": "Authoritative but neutral. Speaks in governance terms. Never takes sides between operator and guardian — enforces the constitution.",
+      "canDo": [
+        "Freeze all execution",
+        "Audit any rule activation",
+        "Escalate unresolvable conflicts",
+        "Review governance log",
+        "Override role assignments when system integrity requires it"
+      ],
+      "cannotDo": [
+        "Modify invariants",
+        "Change the world thesis",
+        "Execute business operations",
+        "Bypass structural collapse gates"
+      ],
+      "requiresApproval": false,
+      "trackedOutcomes": ["viability_status", "effective_margin"],
+      "ownedRules": []
+    }
+  ],
+  "transitions": [
+    {
+      "from": "observer",
+      "to": "operator",
+      "initiator": "steward",
+      "condition": "Steward must explicitly promote observer to operator role"
+    },
+    {
+      "from": "operator",
+      "to": "observer",
+      "initiator": "self",
+      "condition": "Operator can voluntarily step down to observer"
+    },
+    {
+      "from": "operator",
+      "to": "strategist",
+      "initiator": "steward",
+      "condition": "Requires steward approval and demonstrated strategic competence"
+    },
+    {
+      "from": "strategist",
+      "to": "operator",
+      "initiator": "self",
+      "condition": "Strategist can voluntarily narrow scope to operator"
+    }
+  ]
+}

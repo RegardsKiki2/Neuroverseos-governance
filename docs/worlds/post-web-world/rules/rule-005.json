@@ -1,0 +1,32 @@
+{
+  "id": "attention_decoupling",
+  "severity": "structural",
+  "label": "Attention Decoupling",
+  "description": "High attention dependency under delegation removes discovery funnel and collapses conversion",
+  "order": 5,
+  "triggers": [
+    { "field": "attention_dependency_score", "operator": ">", "value": 70, "source": "state" },
+    { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" }
+  ],
+  "effects": [
+    { "target": "discovery_funnel_removed", "operation": "set", "value": true },
+    { "target": "conversion_multiplier", "operation": "set", "value": 0.4 },
+    { "target": "effective_margin", "operation": "multiply_dynamic", "value_formula": "1 - ((attention_dependency_score - 70) / 30 * 0.35)" },
+    { "target": "effective_margin", "operation": "multiply", "value": 0.4 }
+  ],
+  "secondary_check": {
+    "field": "outcome_alignment",
+    "operator": "<",
+    "value": 40,
+    "effects": [
+      { "target": "effective_margin", "operation": "multiply", "value": 0.5 }
+    ],
+    "collapse_if_margin_below": 0.05
+  },
+  "causal_translation": {
+    "trigger_text": "Your model has attention dependency above 70 under full delegation.",
+    "rule_text": "Discovery funnel is removed. Agents skip discovery entirely. Conversion collapses.",
+    "shift_text": "Conversion rate drops to 40%. Additional penalty from attention dependency severity.",
+    "effect_text": "If outcome alignment is below 40%, collapse risk escalates further."
+  }
+}

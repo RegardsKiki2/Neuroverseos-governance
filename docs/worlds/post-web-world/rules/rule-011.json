@@ -1,0 +1,30 @@
+{
+  "id": "delegation_compression",
+  "severity": "degradation",
+  "label": "Journey Compression",
+  "description": "Delegation compresses the user journey, reducing touchpoints and engagement opportunities",
+  "order": 11,
+  "triggers": [
+    { "field": "delegation_level", "operator": "!=", "value": "manual", "source": "assumption" }
+  ],
+  "effects_conditional": [
+    {
+      "condition": { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" },
+      "effects": [
+        { "target": "effective_steps", "operation": "set", "value": 3 }
+      ]
+    },
+    {
+      "condition": { "field": "delegation_level", "operator": "==", "value": "hybrid", "source": "assumption" },
+      "effects": [
+        { "target": "effective_steps", "operation": "set", "value": 6 }
+      ]
+    }
+  ],
+  "causal_translation": {
+    "trigger_text": "Delegation is active in this assumption profile.",
+    "rule_text": "Delegated agents compress the navigation journey — fewer steps, fewer engagement points.",
+    "shift_text": "Full delegation reduces journey to ~3 steps. Hybrid reduces to ~6 steps.",
+    "effect_text": "Every eliminated step is a lost opportunity for attention capture, upsell, or discovery revenue."
+  }
+}

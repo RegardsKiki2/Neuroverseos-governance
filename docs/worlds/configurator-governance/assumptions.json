@@ -1,0 +1,62 @@
+{
+  "profiles": {
+    "careful_builder": {
+      "name": "Careful Builder",
+      "description": "Takes time to define a clear thesis, author comprehensive invariants, write specific rules, and test thoroughly before shipping.",
+      "is_default_baseline": true,
+      "parameters": {
+        "build_discipline": "methodical",
+        "review_process": "full",
+        "testing_approach": "comprehensive",
+        "template_reliance": "minimal"
+      }
+    },
+    "fast_ship": {
+      "name": "Fast Ship",
+      "description": "Prioritizes speed over thoroughness. Skips invariant authoring, writes minimal rules, ships without testing. Relies heavily on templates.",
+      "is_default_alternative": true,
+      "parameters": {
+        "build_discipline": "rushed",
+        "review_process": "none",
+        "testing_approach": "none",
+        "template_reliance": "heavy"
+      }
+    },
+    "template_first": {
+      "name": "Template-First Builder",
+      "description": "Starts from a template and customizes. Moderate thoroughness. Some invariants inherited, some authored. Partial testing.",
+      "parameters": {
+        "build_discipline": "moderate",
+        "review_process": "partial",
+        "testing_approach": "partial",
+        "template_reliance": "heavy"
+      }
+    }
+  },
+  "parameter_definitions": {
+    "build_discipline": {
+      "type": "enum",
+      "options": ["methodical", "moderate", "rushed"],
+      "label": "Build Discipline",
+      "description": "How much care is applied to each step of the world-building process"
+    },
+    "review_process": {
+      "type": "enum",
+      "options": ["full", "partial", "none"],
+      "label": "Review Process",
+      "description": "Whether the builder reviews invariants, rules, and enforcement before shipping"
+    },
+    "testing_approach": {
+      "type": "enum",
+      "options": ["comprehensive", "partial", "none"],
+      "label": "Testing Approach",
+      "description": "How thoroughly the world is tested before deployment"
+    },
+    "template_reliance": {
+      "type": "enum",
+      "options": ["minimal", "moderate", "heavy"],
+      "label": "Template Reliance",
+      "description": "How much the builder depends on pre-built templates vs custom authoring"
+    }
+  }
+}

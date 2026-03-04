@@ -1,0 +1,19 @@
+{
+  "id": "expert_efficiency_bonus",
+  "severity": "advantage",
+  "label": "Expert Builder Efficiency",
+  "description": "Expert builders know which invariants matter, write tighter rules, and avoid common governance pitfalls.",
+  "order": 8,
+  "triggers": [
+    { "field": "builder_experience", "operator": "==", "value": "expert", "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "add", "value": 0.10 }
+  ],
+  "causal_translation": {
+    "trigger_text": "Builder experience is expert-level.",
+    "rule_text": "Experience matters. Expert builders understand governance architecture and avoid structural mistakes that novices make.",
+    "shift_text": "The world benefits from informed design choices across all dimensions.",
+    "effect_text": "World integrity +10%."
+  }
+}

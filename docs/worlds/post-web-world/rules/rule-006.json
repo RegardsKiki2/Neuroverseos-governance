@@ -1,0 +1,21 @@
+{
+  "id": "attention_decoupling_hybrid",
+  "severity": "degradation",
+  "label": "Partial Attention Decoupling",
+  "description": "Moderate attention decoupling under hybrid delegation",
+  "order": 6,
+  "triggers": [
+    { "field": "attention_dependency_score", "operator": ">", "value": 50, "source": "state" },
+    { "field": "delegation_level", "operator": "==", "value": "hybrid", "source": "assumption" }
+  ],
+  "effects": [
+    { "target": "conversion_multiplier", "operation": "set", "value": 0.7 },
+    { "target": "effective_margin", "operation": "multiply", "value": 0.7 }
+  ],
+  "causal_translation": {
+    "trigger_text": "Your model has attention dependency above 50 under hybrid delegation.",
+    "rule_text": "Partial delegation reduces but does not eliminate attention-dependent funnel.",
+    "shift_text": "Conversion rate drops to 70% — moderate funnel compression.",
+    "effect_text": "Margin reduced proportionally to partial attention loss."
+  }
+}

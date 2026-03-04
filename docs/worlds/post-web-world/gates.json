@@ -1,0 +1,20 @@
+{
+  "viability_classification": [
+    { "status": "THRIVING", "field": "effective_margin", "operator": ">=", "value": 0.40, "color": "#0f6b3a", "icon": "◆" },
+    { "status": "STABLE", "field": "effective_margin", "operator": ">=", "value": 0.20, "color": "#2d7a4f", "icon": "●" },
+    { "status": "COMPRESSED", "field": "effective_margin", "operator": ">=", "value": 0.10, "color": "#a16207", "icon": "▲" },
+    { "status": "CRITICAL", "field": "effective_margin", "operator": ">", "value": 0.03, "color": "#c0392b", "icon": "▼" },
+    { "status": "MODEL_COLLAPSES", "field": "effective_margin", "operator": "<=", "value": 0.03, "color": "#b91c1c", "icon": "■" }
+  ],
+  "structural_override": {
+    "description": "Any rule with severity=structural that triggers a collapse_check forces MODEL_COLLAPSES regardless of final margin",
+    "enforcement": "mandatory"
+  },
+  "sustainability_threshold": 0.10,
+  "collapse_visual": {
+    "background": "#1c1917",
+    "text": "#fef2f2",
+    "border": "#b91c1c",
+    "label": "Structural Failure"
+  }
+}

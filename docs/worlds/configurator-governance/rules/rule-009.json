@@ -1,0 +1,20 @@
+{
+  "id": "template_dependency_risk",
+  "severity": "degradation",
+  "label": "Template Dependency Risk",
+  "description": "Heavy reliance on templates without understanding the underlying governance produces worlds that look complete but lack structural coherence.",
+  "order": 9,
+  "triggers": [
+    { "field": "template_reliance", "operator": "==", "value": "heavy", "source": "assumption" },
+    { "field": "invariant_quality", "operator": "<", "value": 50, "source": "state" }
+  ],
+  "effects": [
+    { "target": "world_integrity", "operation": "multiply", "value": 0.70 }
+  ],
+  "causal_translation": {
+    "trigger_text": "Builder relies heavily on templates with low invariant quality (<50%).",
+    "rule_text": "Templates provide structure but not understanding. If the builder doesn't grasp why invariants exist, they can't adapt governance for their domain.",
+    "shift_text": "The world looks complete but is structurally hollow. Invariants are inherited, not authored.",
+    "effect_text": "World integrity reduced by 30%. Governance is inherited, not understood."
+  }
+}

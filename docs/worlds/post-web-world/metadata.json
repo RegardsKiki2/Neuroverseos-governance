@@ -1,0 +1,9 @@
+{
+  "format_version": "nv-world-1.0",
+  "created_at": "2026-02-15T20:00:00Z",
+  "configurator_version": "manual-authoring",
+  "schema_version": "1.0.0",
+  "author": "NeuroVerse",
+  "license": "proprietary",
+  "notes": "Reference implementation — hand-authored Post Web world for Experience Space Player development"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ad_revenue_degradation",
+  "severity": "structural",
+  "label": "Ad Revenue Degradation",
+  "description": "Agents do not see ads — ad revenue severely degraded even without cost optimization",
+  "order": 4,
+  "exclusive_with": "revenue_layer_removal",
+  "triggers": [
+    { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" },
+    { "field": "revenue_model", "operator": "==", "value": "ads", "source": "state" },
+    { "field": "agent_optimization_priority", "operator": "!=", "value": "cost", "source": "assumption" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "multiply", "value": 0.08 },
+    { "target": "ad_revenue_accessible", "operation": "set", "value": false }
+  ],
+  "causal_translation": {
+    "trigger_text": "Your primary revenue is advertising under delegated agents.",
+    "rule_text": "Even non-cost-optimizing agents do not render ads the way browsers do.",
+    "shift_text": "Ad revenue reduced to residual brand sponsorship levels.",
+    "effect_text": "Ad revenue at 8% of baseline — only indirect sponsorship value remains."
+  }
+}

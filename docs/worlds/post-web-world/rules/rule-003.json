@@ -1,0 +1,28 @@
+{
+  "id": "revenue_layer_removal",
+  "severity": "structural",
+  "label": "Revenue Layer Removal",
+  "description": "Cost-optimizing agents do not render ads — ad revenue channel removed entirely",
+  "order": 3,
+  "triggers": [
+    { "field": "delegation_level", "operator": "==", "value": "delegated", "source": "assumption" },
+    { "field": "revenue_model", "operator": "==", "value": "ads", "source": "state" },
+    { "field": "agent_optimization_priority", "operator": "==", "value": "cost", "source": "assumption" }
+  ],
+  "effects": [
+    { "target": "effective_margin", "operation": "multiply", "value": 0.0 },
+    { "target": "ad_revenue_accessible", "operation": "set", "value": false }
+  ],
+  "collapse_check": {
+    "field": "effective_margin",
+    "operator": "<=",
+    "value": 0.03,
+    "result": "MODEL_COLLAPSES"
+  },
+  "causal_translation": {
+    "trigger_text": "Your primary revenue is advertising, and agents optimize for cost.",
+    "rule_text": "Cost-optimizing agents do not render, view, or click ads. They skip them entirely.",
+    "shift_text": "Your revenue stream is not degraded — it is destroyed. Multiplier is zero.",
+    "effect_text": "Ad revenue channel removed. This is not recoverable without changing revenue_model."
+  }
+}

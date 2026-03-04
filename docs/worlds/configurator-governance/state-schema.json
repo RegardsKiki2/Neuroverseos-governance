@@ -1,0 +1,173 @@
+{
+  "variables": {
+    "thesis_clarity": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 70,
+      "mutable": true,
+      "label": "Thesis Clarity",
+      "description": "How specific, testable, and structural the world thesis is. 0 = no thesis. 100 = falsifiable structural claim."
+    },
+    "invariant_count": {
+      "type": "number",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 4,
+      "mutable": true,
+      "label": "Invariant Count",
+      "description": "Number of declared structural invariants. Too few = governance vacuum. Too many = over-constrained."
+    },
+    "invariant_quality": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 60,
+      "mutable": true,
+      "label": "Invariant Quality",
+      "description": "Are invariants structural truths or aspirational statements? 0 = all aspirational. 100 = all structural."
+    },
+    "rule_count": {
+      "type": "number",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "default": 8,
+      "mutable": true,
+      "label": "Rule Count",
+      "description": "Number of declared deterministic rules"
+    },
+    "rule_specificity": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 55,
+      "mutable": true,
+      "label": "Rule Specificity",
+      "description": "How precisely rules define triggers and effects. 0 = impossibly vague. 100 = extremely brittle. Sweet spot is 40-70."
+    },
+    "enforcement_depth": {
+      "type": "enum",
+      "options": ["none", "pattern_only", "structural", "full_stack"],
+      "default": "structural",
+      "mutable": true,
+      "label": "Enforcement Depth",
+      "description": "How deeply enforcement logic covers the constitution"
+    },
+    "testing_coverage": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 40,
+      "mutable": true,
+      "label": "Testing Coverage",
+      "description": "Percentage of rules and edge cases tested before deployment"
+    },
+    "role_separation": {
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "default": 50,
+      "mutable": true,
+      "label": "Role Separation",
+      "description": "How well-defined and non-overlapping role authorities are. 0 = all roles can do everything. 100 = perfect separation."
+    },
+    "builder_experience": {
+      "type": "enum",
+      "options": ["novice", "intermediate", "expert"],
+      "default": "intermediate",
+      "mutable": true,
+      "label": "Builder Experience",
+      "description": "Experience level of the person building the world"
+    },
+    "base_integrity": {
+      "type": "number",
+      "min": 0.10,
+      "max": 0.95,
+      "step": 0.01,
+      "default": 0.60,
+      "mutable": true,
+      "label": "Base Integrity Score",
+      "description": "Starting integrity before governance effects are applied",
+      "display_as": "percentage"
+    }
+  },
+  "presets": {
+    "Production-Grade World": {
+      "description": "Well-authored world with strong thesis, comprehensive invariants, tested rules, and full enforcement",
+      "values": {
+        "thesis_clarity": 90,
+        "invariant_count": 5,
+        "invariant_quality": 85,
+        "rule_count": 15,
+        "rule_specificity": 55,
+        "enforcement_depth": "full_stack",
+        "testing_coverage": 80,
+        "role_separation": 75,
+        "builder_experience": "expert",
+        "base_integrity": 0.85
+      }
+    },
+    "Template Clone": {
+      "description": "Copied from a template with minimal customization. Inherited invariants, generic rules.",
+      "values": {
+        "thesis_clarity": 30,
+        "invariant_count": 3,
+        "invariant_quality": 40,
+        "rule_count": 6,
+        "rule_specificity": 35,
+        "enforcement_depth": "pattern_only",
+        "testing_coverage": 10,
+        "role_separation": 30,
+        "builder_experience": "novice",
+        "base_integrity": 0.35
+      }
+    },
+    "Weekend Prototype": {
+      "description": "Quick build to test an idea. Some invariants, basic rules, no enforcement or testing.",
+      "values": {
+        "thesis_clarity": 50,
+        "invariant_count": 2,
+        "invariant_quality": 50,
+        "rule_count": 4,
+        "rule_specificity": 40,
+        "enforcement_depth": "none",
+        "testing_coverage": 5,
+        "role_separation": 20,
+        "builder_experience": "intermediate",
+        "base_integrity": 0.40
+      }
+    },
+    "Enterprise Deployment": {
+      "description": "High-stakes world for business use. Maximum rigor across all dimensions.",
+      "values": {
+        "thesis_clarity": 95,
+        "invariant_count": 8,
+        "invariant_quality": 90,
+        "rule_count": 25,
+        "rule_specificity": 60,
+        "enforcement_depth": "full_stack",
+        "testing_coverage": 90,
+        "role_separation": 85,
+        "builder_experience": "expert",
+        "base_integrity": 0.90
+      }
+    },
+    "Governance Vacuum": {
+      "description": "No thesis, no invariants, no enforcement. Maximum fragility.",
+      "values": {
+        "thesis_clarity": 5,
+        "invariant_count": 0,
+        "invariant_quality": 0,
+        "rule_count": 2,
+        "rule_specificity": 15,
+        "enforcement_depth": "none",
+        "testing_coverage": 0,
+        "role_separation": 10,
+        "builder_experience": "novice",
+        "base_integrity": 0.15
+      }
+    }
+  }
+}

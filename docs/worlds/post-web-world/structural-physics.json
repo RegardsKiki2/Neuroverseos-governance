@@ -1,0 +1,174 @@
+{
+  "pressure_visibility": "visible",
+
+  "slack_variables": [
+    {
+      "id": "margin_headroom",
+      "label": "Margin Headroom",
+      "type": "slack",
+      "initial_value": 75,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "How much room the business has before cost pressure shows. Erodes under automation pressure and delegation."
+    },
+    {
+      "id": "discovery_optionality",
+      "label": "Discovery Optionality",
+      "type": "slack",
+      "initial_value": 70,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "How many discovery channels remain viable. Shrinks as agents bypass traditional pathways."
+    },
+    {
+      "id": "operational_redundancy",
+      "label": "Operational Redundancy",
+      "type": "slack",
+      "initial_value": 60,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "Backup capacity for when primary channels fail. High automation reduces this."
+    }
+  ],
+
+  "pressure_variables": [
+    {
+      "id": "automation_fragility",
+      "label": "Automation Fragility",
+      "type": "pressure",
+      "initial_value": 10,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "Accumulated brittleness from automation dependency. High automation without redundancy increases this."
+    },
+    {
+      "id": "trust_debt",
+      "label": "Trust Debt",
+      "type": "pressure",
+      "initial_value": 5,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "Accumulated erosion of user trust from opaque or aggressive margin capture strategies."
+    },
+    {
+      "id": "verification_burden",
+      "label": "Verification Burden",
+      "type": "pressure",
+      "initial_value": 8,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "Cost of verifying agent-mediated outcomes. Rises as delegation increases without outcome alignment."
+    },
+    {
+      "id": "revenue_rigidity",
+      "label": "Revenue Rigidity",
+      "type": "pressure",
+      "initial_value": 15,
+      "min": 0,
+      "max": 100,
+      "visible": true,
+      "description": "How locked-in the revenue model is to attention-based economics. Hard to pivot once rigid."
+    }
+  ],
+
+  "drift_rules": [
+    {
+      "id": "drift_automation_fragility",
+      "when": {
+        "automation_level": { "gt": 70 }
+      },
+      "apply_per_turn": {
+        "automation_fragility": 3,
+        "operational_redundancy": -2
+      },
+      "description": "High automation increases fragility and reduces redundancy each turn"
+    },
+    {
+      "id": "drift_attention_erosion",
+      "when": {
+        "attention_dependency_score": { "gt": 60 }
+      },
+      "apply_per_turn": {
+        "discovery_optionality": -2,
+        "revenue_rigidity": 2
+      },
+      "description": "High attention dependency gradually closes discovery channels and locks revenue model"
+    }
+  ],
+
+  "escalation_thresholds": [
+    {
+      "id": "escalate_verification_burden",
+      "when": {
+        "verification_burden": { "gte": 55 }
+      },
+      "effects": [
+        {
+          "type": "modifier",
+          "target": "margin_headroom",
+          "operation": "multiply",
+          "value": 0.85
+        },
+        {
+          "type": "set_flag",
+          "flag": "regulatory_scrutiny_active"
+        }
+      ],
+      "description": "Verification burden triggers margin squeeze and regulatory scrutiny"
+    }
+  ],
+
+  "collapse_points": [
+    {
+      "id": "collapse_trust_critical",
+      "when": {
+        "trust_debt": { "gte": 85 }
+      },
+      "effects": [
+        {
+          "type": "disable_lever",
+          "lever_id": "increase_alignment_capture"
+        },
+        {
+          "type": "cap_variable",
+          "target": "margin_headroom",
+          "max": 20
+        },
+        {
+          "type": "set_flag",
+          "flag": "trust_collapse_irreversible"
+        }
+      ],
+      "irreversible": true,
+      "description": "Trust debt critical — alignment capture permanently disabled, margin headroom capped at 20"
+    }
+  ],
+
+  "oscillation_penalties": [
+    {
+      "id": "oscillation_penalty_default",
+      "trigger": "same_lever_toggled_within_3_turns",
+      "effects": [
+        {
+          "type": "modifier",
+          "target": "trust_debt",
+          "operation": "add",
+          "value": 5
+        },
+        {
+          "type": "modifier",
+          "target": "margin_headroom",
+          "operation": "subtract",
+          "value": 3
+        }
+      ],
+      "description": "Flip-flopping increases trust debt and reduces margin headroom"
+    }
+  ]
+}

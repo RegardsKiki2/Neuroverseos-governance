@@ -1,0 +1,40 @@
+{
+  "id": "governance_coherence_reward",
+  "severity": "advantage",
+  "label": "Governance Coherence Reward",
+  "description": "When thesis, invariants, rules, and enforcement all align, the world achieves governance coherence — the gold standard.",
+  "order": 10,
+  "triggers": [
+    { "field": "thesis_clarity", "operator": ">", "value": 70, "source": "state" },
+    { "field": "invariant_quality", "operator": ">", "value": 70, "source": "state" },
+    { "field": "enforcement_depth", "operator": "!=", "value": "none", "source": "state" }
+  ],
+  "effects_conditional": [
+    {
+      "condition": { "field": "enforcement_depth", "operator": "==", "value": "full_stack", "source": "state" },
+      "effects": [
+        { "target": "world_integrity", "operation": "add", "value": 0.20 },
+        { "target": "governance_coherent", "operation": "set", "value": true }
+      ]
+    },
+    {
+      "condition": { "field": "enforcement_depth", "operator": "==", "value": "structural", "source": "state" },
+      "effects": [
+        { "target": "world_integrity", "operation": "add", "value": 0.12 },
+        { "target": "governance_coherent", "operation": "set", "value": true }
+      ]
+    },
+    {
+      "condition": { "field": "enforcement_depth", "operator": "==", "value": "pattern_only", "source": "state" },
+      "effects": [
+        { "target": "world_integrity", "operation": "add", "value": 0.05 }
+      ]
+    }
+  ],
+  "causal_translation": {
+    "trigger_text": "Thesis clarity >70%, invariant quality >70%, and enforcement is active.",
+    "rule_text": "Governance coherence is achieved when thesis, invariants, rules, and enforcement form a single unified system. Each element reinforces the others.",
+    "shift_text": "The world moves from a collection of constraints to a coherent governance architecture.",
+    "effect_text": "Full-stack enforcement: +20% integrity + COHERENT. Structural: +12% + COHERENT. Pattern-only: +5%."
+  }
+}
