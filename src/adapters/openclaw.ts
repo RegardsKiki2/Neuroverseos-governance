@@ -71,8 +71,11 @@ function defaultMapAction(action: AgentAction, direction: 'input' | 'output'): G
     tool: action.tool ?? action.type,
     args: action.input,
     direction,
-    scope: action.input?.path as string | undefined
-      ?? action.input?.url as string | undefined,
+    scope: typeof action.input?.path === 'string'
+      ? action.input.path
+      : typeof action.input?.url === 'string'
+        ? action.input.url
+        : undefined,
   };
 }
 

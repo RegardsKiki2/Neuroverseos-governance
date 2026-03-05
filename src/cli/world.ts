@@ -224,7 +224,7 @@ function computeWorldDiff(a: WorldDefinition, b: WorldDefinition): WorldDiff {
 
 async function worldSnapshot(worldPath: string): Promise<void> {
   const { readdir, readFile, mkdir, writeFile } = await import('fs/promises');
-  const { join, basename } = await import('path');
+  const { join } = await import('path');
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const snapshotDir = join(worldPath, '.snapshots', timestamp);
@@ -265,7 +265,7 @@ async function worldSnapshot(worldPath: string): Promise<void> {
 // ─── Rollback ───────────────────────────────────────────────────────────────
 
 async function worldRollback(worldPath: string): Promise<void> {
-  const { readdir, readFile, writeFile, cp } = await import('fs/promises');
+  const { readdir, readFile, writeFile } = await import('fs/promises');
   const { join } = await import('path');
 
   const snapshotsDir = join(worldPath, '.snapshots');

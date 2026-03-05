@@ -77,5 +77,8 @@
     "type": "git",
     "url": "https://github.com/neuroverseos/neuroverseos-governance"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "homepage": "https://neuroverseos.com"
 }
