@@ -206,7 +206,25 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
 
   // 10. ALWAYS write the file so users can inspect and iterate
   //     Gate status is advisory — never blocks file writing
-  await writeFile(options.outputPath, extracted, 'utf-8');
+  //     Embed diagnostics as HTML comment when findings exist
+  let output = extracted;
+  if (findings.length > 0) {
+    const lines = [`<!-- DERIVATION STATUS: ${gate}`];
+    const errs = findings.filter(f => f.severity === 'error');
+    const warns = findings.filter(f => f.severity === 'warning');
+    if (errs.length > 0) {
+      lines.push('', 'Errors:');
+      for (const f of errs) lines.push(`- [${f.section}] ${f.message}`);
+    }
+    if (warns.length > 0) {
+      lines.push('', 'Warnings:');
+      for (const f of warns) lines.push(`- [${f.section}] ${f.message}`);
+    }
+    lines.push('-->', '');
+    output = lines.join('\n') + extracted;
+  }
+
+  await writeFile(options.outputPath, output, 'utf-8');
 
   const hasErrors = errors.length > 0;
 
