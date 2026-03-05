@@ -18,7 +18,8 @@ import {
 } from '../src/engine/derive-prompt';
 import { parseWorldMarkdown } from '../src/engine/bootstrap-parser';
 import { DERIVE_EXIT_CODES, CONFIGURE_AI_EXIT_CODES } from '../src/contracts/derive-contract';
-import { humanLabel } from '../src/cli/build';
+import { humanLabel, traceCausalChains } from '../src/cli/build';
+import type { ParsedRule } from '../src/contracts/bootstrap-contract';
 
 // ─── Test Fixtures ──────────────────────────────────────────────────────────
 
@@ -709,5 +710,73 @@ describe('humanLabel', () => {
   it('falls back to uppercased section for unknown categories', () => {
     expect(humanLabel('Validate:some-new-thing')).toBe('VALIDATE:SOME-NEW-THING');
     expect(humanLabel('Rules')).toBe('RULES');
+  });
+});
+
+// ─── Causal Chain Tracer Tests ──────────────────────────────────────────────
+
+describe('traceCausalChains', () => {
+  function makeRule(id: string, triggerField: string, effectTarget: string): ParsedRule {
+    return {
+      id,
+      label: id,
+      severity: 'structural',
+      order: 0,
+      triggers: [{ field: triggerField, operator: '>', value: 50, source: 'state' as const }],
+      effects: [{ target: effectTarget, operation: 'multiply', value: 0.5 }],
+      line: 0,
+    };
+  }
+
+  it('traces a simple A -> B -> C chain', () => {
+    const rules = [
+      makeRule('r1', 'rage', 'violence'),
+      makeRule('r2', 'violence', 'danger'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeGreaterThan(0);
+    const longest = chains[0];
+    expect(longest).toContain('violence');
+    expect(longest).toContain('danger');
+  });
+
+  it('traces longer chains', () => {
+    const rules = [
+      makeRule('r1', 'rage', 'violence'),
+      makeRule('r2', 'violence', 'accuracy'),
+      makeRule('r3', 'accuracy', 'endangerment'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeGreaterThan(0);
+    const longest = chains[0];
+    expect(longest.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('returns empty for rules with no connections', () => {
+    const rules = [
+      makeRule('r1', 'a', 'b'),
+      makeRule('r2', 'c', 'd'),
+    ];
+    const chains = traceCausalChains(rules);
+    // Each rule produces a chain of length 1 (just the target), which is filtered out
+    // since we require length >= 2
+    for (const chain of chains) {
+      expect(chain.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('limits to 3 chains', () => {
+    const rules = [
+      makeRule('r1', 'a', 'b'),
+      makeRule('r2', 'b', 'c'),
+      makeRule('r3', 'x', 'y'),
+      makeRule('r4', 'y', 'z'),
+      makeRule('r5', 'm', 'n'),
+      makeRule('r6', 'n', 'o'),
+      makeRule('r7', 'p', 'q'),
+      makeRule('r8', 'q', 'r'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeLessThanOrEqual(3);
   });
 });

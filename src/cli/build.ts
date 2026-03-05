@@ -30,6 +30,7 @@ import { deriveWorld, DeriveInputError, DeriveProviderError } from '../engine/de
 import { parseWorldMarkdown } from '../engine/bootstrap-parser';
 import { emitWorldDefinition } from '../engine/bootstrap-emitter';
 import type { DeriveFinding } from '../contracts/derive-contract';
+import type { ParsedRule } from '../contracts/bootstrap-contract';
 
 // ─── Human-Readable Finding Labels ──────────────────────────────────────────
 
@@ -47,6 +48,79 @@ export function humanLabel(section: string): string {
   // Section format from derive: "Validate:<category>" or raw section name
   const category = section.replace(/^Validate:/, '');
   return FINDING_LABELS[category] ?? section.toUpperCase();
+}
+
+// ─── Causal Chain Tracer ─────────────────────────────────────────────────────
+
+/**
+ * Trace causal chains through rules: find sequences where one rule's
+ * effect target becomes another rule's trigger field.
+ *
+ * Returns chains like: rage -> violence -> danger
+ */
+export function traceCausalChains(rules: ParsedRule[]): string[][] {
+  // Build adjacency: effect target -> rules triggered by that field
+  const effectToTrigger = new Map<string, Set<string>>();
+
+  for (const rule of rules) {
+    for (const trigger of rule.triggers) {
+      if (!effectToTrigger.has(trigger.field)) effectToTrigger.set(trigger.field, new Set());
+      effectToTrigger.get(trigger.field)!.add(rule.id);
+    }
+  }
+
+  // For each rule, trace forward through effect chains
+  const chains: string[][] = [];
+  const ruleById = new Map(rules.map(r => [r.id, r]));
+
+  for (const startRule of rules) {
+    const chain = [startRule.effects[0]?.target].filter(Boolean);
+    if (chain.length === 0) continue;
+
+    const visited = new Set<string>([startRule.id]);
+    let current = startRule;
+
+    // Follow the chain: current rule's effect target -> next rule's trigger
+    for (let depth = 0; depth < 5; depth++) {
+      const lastTarget = current.effects[0]?.target;
+      if (!lastTarget) break;
+
+      // Find a rule triggered by this target
+      const triggeredRuleIds = effectToTrigger.get(lastTarget);
+      if (!triggeredRuleIds) break;
+
+      let nextRule: ParsedRule | undefined;
+      for (const id of triggeredRuleIds) {
+        if (!visited.has(id)) {
+          nextRule = ruleById.get(id);
+          break;
+        }
+      }
+      if (!nextRule) break;
+
+      visited.add(nextRule.id);
+      const nextTarget = nextRule.effects[0]?.target;
+      if (nextTarget && !chain.includes(nextTarget)) {
+        chain.push(nextTarget);
+      }
+      current = nextRule;
+    }
+
+    if (chain.length >= 2) {
+      chains.push(chain);
+    }
+  }
+
+  // Deduplicate: remove chains that are subsets of longer chains
+  const sorted = chains.sort((a, b) => b.length - a.length);
+  const unique: string[][] = [];
+  for (const chain of sorted) {
+    const key = chain.join(' -> ');
+    const isSubset = unique.some(existing => existing.join(' -> ').includes(key));
+    if (!isSubset) unique.push(chain);
+  }
+
+  return unique.slice(0, 3); // Show top 3 chains
 }
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
@@ -194,7 +268,20 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       if (firstLine) write(`Theme: ${firstLine}\n`);
     }
 
-    // ── Step 3: Print structure summary ─────────────────────────────────
+    // ── Step 3: Print causal preview ────────────────────────────────────
+
+    const parsedRules = parseResult.world?.rules ?? [];
+    if (parsedRules.length > 0) {
+      const chains = traceCausalChains(parsedRules);
+      if (chains.length > 0) {
+        write(`\nCore dynamics:\n`);
+        for (const chain of chains) {
+          write(`  ${chain.join(' -> ')}\n`);
+        }
+      }
+    }
+
+    // ── Step 4: Print structure summary ─────────────────────────────────
 
     write(`\nStructure:\n`);
     const sectionLabels: Record<string, string> = {
@@ -265,7 +352,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         await copyFile(derivedPath, sourceDest);
       }
 
-      write(`\nWorld compiled to: ${outputDir}/\n`);
+      write(`\nWorld ready: ${worldId}\n`);
+      write(`  ${outputDir}/\n`);
     } catch (bootstrapError) {
       write(`\nWorld source written to: ${derivedPath}\n`);
       write(`Bootstrap failed: ${bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError)}\n`);
@@ -277,8 +365,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     // ── Step 7: Next steps ──────────────────────────────────────────────
 
     write(`\nNext steps:\n`);
-    write(`  neuroverse validate --world ${outputDir}\n`);
-    write(`  neuroverse explain ${worldId}\n`);
+    write(`  Explore    neuroverse explain ${worldId}\n`);
+    write(`  Validate   neuroverse validate --world ${outputDir}\n`);
     write(`\n`);
 
     process.exit(0);
