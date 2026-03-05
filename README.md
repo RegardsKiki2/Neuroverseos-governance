@@ -53,6 +53,28 @@ Or explore what's available:
 npx neuroverse --help
 ```
 
+## Build a World from Your Documents
+
+Already have notes, policies, or design docs? NeuroVerse can turn them into a governance world automatically.
+
+```
+my-policies/
+  safety-rules.md
+  api-restrictions.md
+  compliance-notes.md
+```
+
+```bash
+npx neuroverse derive --input ./my-policies/ --output safety-world.nv-world.md
+npx neuroverse build safety-world.nv-world.md
+npx neuroverse simulate safety-world --steps 5
+npx neuroverse guard --world .neuroverse/worlds/safety_world
+```
+
+That's the full loop: **documents → world → simulation → enforcement**.
+
+You don't need to write structured rules by hand — `derive` reads your markdown and synthesizes them into a world definition that `build` can compile.
+
 ## Quick Example: AI Safety Governance
 
 Define rules that restrict unsafe agent behavior, then enforce them at runtime.
