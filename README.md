@@ -1,14 +1,29 @@
 # NeuroVerse Governance
 
-**Define the rules once. Run them anywhere AI operates.**
+**Define governance rules once and enforce them anywhere AI or automated systems operate.**
 
 NeuroVerse turns written ideas into portable governance systems — structured rules, variables, and outcomes that both humans and AI must operate inside.
 
+## The 10-Second Mental Model
+
 ```
-Idea (markdown)  →  World (JSON)  →  Enforcement (any runtime)
+Idea (markdown)
+  ↓
+World (compiled JSON rules)
+  ↓
+Guard Engine
+  ↓
+ALLOW | PAUSE | BLOCK
 ```
 
-World files are not locked to NeuroVerse. They are **portable rule systems** that can govern AI anywhere — agents, business automation, games, safety layers. Any runtime that can parse JSON and evaluate conditions can enforce a world.
+Write the rules once. Enforce them anywhere:
+- AI agents
+- Automation systems
+- API gateways
+- Simulations
+- Safety layers
+
+World files are not locked to NeuroVerse. They are **portable rule systems** — any runtime that can parse JSON and evaluate conditions can enforce a world.
 
 ## Install
 
@@ -16,13 +31,22 @@ World files are not locked to NeuroVerse. They are **portable rule systems** tha
 npm install neuroverse-governance
 ```
 
-## Run the CLI
+## Quick Start
+
+```bash
+npm install neuroverse-governance
+npx neuroverse init
+neuroverse build governance-policy.md
+neuroverse guard --world .neuroverse/worlds/governance_policy
+```
+
+Or explore what's available:
 
 ```bash
 npx neuroverse --help
 ```
 
-## The Workflow
+## Quick Example: AI Safety Governance
 
 Define rules that restrict unsafe agent behavior, then enforce them at runtime.
 
@@ -64,12 +88,14 @@ BLOCKED
 
 Every action produces `ALLOW`, `PAUSE`, or `BLOCK` with full audit evidence. That's a governance engine in three commands.
 
-## Example: Narrative System Dynamics
+## Example World: Narrative System Dynamics
 
-NeuroVerse isn't just for safety policies — it models any system with rules, state, and consequences. The "Inherited Silence" world is a fictional scenario demonstrating how governance rules interact in complex systems.
+The "Inherited Silence" world is a fictional example used to demonstrate how complex causal rule systems evolve over time.
+
+NeuroVerse worlds can model **any domain** — AI governance, finance, business automation, safety layers, or narrative systems.
 
 ```bash
-neuroverse build horror-notes.md
+neuroverse build narrative-notes.md
 neuroverse explain inherited_silence
 neuroverse simulate inherited_silence --steps 5
 neuroverse improve inherited_silence
