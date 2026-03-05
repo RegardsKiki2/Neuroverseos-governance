@@ -265,7 +265,7 @@ async function worldSnapshot(worldPath: string): Promise<void> {
 // ─── Rollback ───────────────────────────────────────────────────────────────
 
 async function worldRollback(worldPath: string): Promise<void> {
-  const { readdir, readFile, writeFile } = await import('fs/promises');
+  const { readdir, readFile, writeFile, mkdir } = await import('fs/promises');
   const { join } = await import('path');
 
   const snapshotsDir = join(worldPath, '.snapshots');
@@ -293,7 +293,6 @@ async function worldRollback(worldPath: string): Promise<void> {
   const backupDir = join(snapshotsDir, backupTimestamp);
 
   // Save current state as backup
-  const { mkdir } = await import('fs/promises');
   await mkdir(backupDir, { recursive: true });
   const currentFiles = await readdir(worldPath);
   for (const file of currentFiles) {
