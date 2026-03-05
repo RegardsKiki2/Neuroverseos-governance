@@ -1,10 +1,18 @@
 # NeuroVerse Governance
 
-Turn AI prompts into enforceable governance.
+Turn AI prompt files into enforceable governance.
 
-NeuroVerse is a CLI toolkit that converts messy AI prompt files into a structured governance system with validation and runtime enforcement.
+NeuroVerse converts messy prompt instructions like:
 
-Instead of relying on fragile prompt instructions, NeuroVerse lets you create **governed worlds** where agents operate under explicit rules.
+```
+AGENTS.md   SYSTEM.md   TOOLS.md
+```
+
+into a **governed world** with validation and runtime enforcement.
+
+Instead of trusting prompts, agents operate under **explicit rules that can be linted, audited, and enforced**.
+
+As AI agents become more autonomous, prompt instructions alone are not enough. NeuroVerse introduces a governance layer that converts human-readable rules into enforceable system constraints.
 
 ## Install
 
@@ -18,18 +26,41 @@ Run the CLI:
 npx neuroverse --help
 ```
 
-## Core Idea
+## Quick Example
 
-Most AI systems today rely on prompt files like:
+Input prompt files:
 
 ```
 AGENTS.md
 SYSTEM.md
 TOOLS.md
-MEMORY.md
 ```
 
-These documents describe rules and constraints — but cannot be **enforced**.
+Run:
+
+```bash
+neuroverse derive --input ./docs
+```
+
+Output: `derived.nv-world.md`
+
+Then compile:
+
+```bash
+neuroverse bootstrap --input derived.nv-world.md --output ./world --validate
+```
+
+Now every agent action can be evaluated:
+
+```bash
+echo '{"intent":"execute_trade"}' | neuroverse guard --world ./world
+```
+
+Result: `ALLOW`, `PAUSE`, or `BLOCK` — with full governance evidence.
+
+## Core Idea
+
+Most AI systems today rely on prompt files that describe rules and constraints — but cannot **enforce** them.
 
 NeuroVerse converts those documents into a governance constitution your agents must follow.
 
@@ -153,6 +184,15 @@ import {
 ```
 
 All engine functions are pure, deterministic, and side-effect free (except `deriveWorld` which calls an AI provider).
+
+## Related Projects
+
+NeuroVerse Governance is part of the **NeuroVerse OS** ecosystem for governed AI systems.
+
+- **NeuroVerse OS** — Runtime engine for governed worlds
+- **Governance CLI** — This package
+- **World Configurator** — Visual world authoring tool
+- **Agent Plugins** — Framework integrations
 
 ## License
 

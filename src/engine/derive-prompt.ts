@@ -15,19 +15,36 @@ import type { CollectedSource } from '../contracts/derive-contract';
 
 // ─── DerivationWorld Loader ─────────────────────────────────────────────────
 
+const WORLD_FILENAME = 'derivation-world.nv-world.md';
+
 function getModuleDir(): string {
-  // ESM context
   try {
     return dirname(new URL(import.meta.url).pathname);
   } catch {
-    // CJS fallback
     return __dirname;
   }
 }
 
 export async function loadDerivationWorld(): Promise<string> {
-  const worldPath = join(getModuleDir(), '..', 'worlds', 'derivation-world.nv-world.md');
-  return readFile(worldPath, 'utf-8');
+  const moduleDir = getModuleDir();
+  // In dev: src/engine/ → ../worlds/file
+  // In dist: dist/ → worlds/file (tsup flattens chunks into dist/)
+  const candidates = [
+    join(moduleDir, '..', 'worlds', WORLD_FILENAME),
+    join(moduleDir, 'worlds', WORLD_FILENAME),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf-8');
+    } catch {
+      // try next
+    }
+  }
+
+  throw new Error(
+    `DerivationWorld not found. Searched:\n${candidates.map(c => `  - ${c}`).join('\n')}`,
+  );
 }
 
 // ─── Markdown Collector ─────────────────────────────────────────────────────
