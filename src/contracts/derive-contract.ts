@@ -42,8 +42,16 @@ export interface DeriveResult {
   sectionsDetected: string[];
   validationErrors: number;
   validationWarnings: number;
+  findings: DeriveFinding[];
   gate?: string;
   durationMs: number;
+}
+
+export interface DeriveFinding {
+  severity: 'error' | 'warning';
+  section: string;
+  message: string;
+  line?: number;
 }
 
 // ─── Source Collection ──────────────────────────────────────────────────────

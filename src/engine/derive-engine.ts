@@ -133,6 +133,7 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
         sectionsDetected: [],
         validationErrors: 0,
         validationWarnings: 0,
+        findings: [],
         gate: 'DRY_RUN',
         durationMs: performance.now() - startTime,
       },
@@ -193,37 +194,52 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
   // 8. Advisory gate classification
   const gate = classifyGate(errors.length, warnings.length, sectionsDetected.length);
 
-  // 9. Write file — ALWAYS write if parseable (even if DERIVATION_REJECTED)
-  //    Only block on parse errors (no valid world object)
-  if (errors.length > 0 || !world) {
-    return {
-      result: {
-        success: false,
-        outputPath: options.outputPath,
-        sectionsDetected,
-        validationErrors: errors.length,
-        validationWarnings: warnings.length,
-        gate,
-        durationMs: performance.now() - startTime,
-      },
-      exitCode: 1,
-    };
+  // 9. Build findings for CLI output
+  const findings = issues
+    .filter(i => i.severity === 'error' || i.severity === 'warning')
+    .map(i => ({
+      severity: i.severity as 'error' | 'warning',
+      section: i.section,
+      message: i.message,
+      line: i.line,
+    }));
+
+  // 10. ALWAYS write the file so users can inspect and iterate
+  //     Gate status is advisory — never blocks file writing
+  //     Embed diagnostics as HTML comment when findings exist
+  let output = extracted;
+  if (findings.length > 0) {
+    const lines = [`<!-- DERIVATION STATUS: ${gate}`];
+    const errs = findings.filter(f => f.severity === 'error');
+    const warns = findings.filter(f => f.severity === 'warning');
+    if (errs.length > 0) {
+      lines.push('', 'Errors:');
+      for (const f of errs) lines.push(`- [${f.section}] ${f.message}`);
+    }
+    if (warns.length > 0) {
+      lines.push('', 'Warnings:');
+      for (const f of warns) lines.push(`- [${f.section}] ${f.message}`);
+    }
+    lines.push('-->', '');
+    output = lines.join('\n') + extracted;
   }
 
-  // Write the file
-  await writeFile(options.outputPath, extracted, 'utf-8');
+  await writeFile(options.outputPath, output, 'utf-8');
+
+  const hasErrors = errors.length > 0;
 
   return {
     result: {
-      success: true,
+      success: !hasErrors,
       outputPath: options.outputPath,
       sectionsDetected,
-      validationErrors: 0,
+      validationErrors: errors.length,
       validationWarnings: warnings.length,
+      findings,
       gate,
       durationMs: performance.now() - startTime,
     },
-    exitCode: 0,
+    exitCode: hasErrors ? 1 : 0,
   };
 }
 

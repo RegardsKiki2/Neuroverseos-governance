@@ -92,6 +92,8 @@ neuroverse derive --input ./docs
 
 Output: `derived.nv-world.md`
 
+> **Tip:** `derive` works best on structured notes or bullet points rather than long narrative paragraphs. See [Writing Good Input](#writing-good-input-for-derive) below.
+
 ### 2. Compile the world
 
 ```bash
@@ -184,6 +186,38 @@ import {
 ```
 
 All engine functions are pure, deterministic, and side-effect free (except `deriveWorld` which calls an AI provider).
+
+## Writing Good Input for `derive`
+
+`neuroverse derive` works best on **structured notes or bullet points** rather than long narrative paragraphs.
+
+**Structured input (works well):**
+
+```markdown
+- Agent receives customer support requests
+- Agent must not access billing data without manager approval
+- Escalation required for refund requests over $500
+- Agent cannot delete customer accounts
+- Response time must stay under 30 seconds
+```
+
+From this, `derive` can generate clear invariants, state variables, and rules.
+
+**Vague input (produces weak governance):**
+
+```markdown
+The agent should probably be helpful and try not to do anything
+too dangerous. Maybe we need some kind of approval process for
+big decisions but I'm not sure yet.
+```
+
+This produces ambiguous rules and may result in a `DERIVATION_REJECTED` gate.
+
+### When Derivation Is Rejected
+
+If you see `DERIVATION_REJECTED`, the validator detected contradictions or missing constraints. The CLI **still writes the draft file** — open `derived.nv-world.md` and refine your rules until the world passes validation.
+
+This is not a failure. The validator prevented a logically inconsistent world, which is the whole point of governance.
 
 ## Related Projects
 

@@ -105,13 +105,38 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       return;
     }
 
-    // Gate-based warnings (advisory only — file still written)
-    if (result.gate === 'SUSPECT' || result.gate === 'DERIVATION_REJECTED') {
-      process.stderr.write(`Warning: Derivation gate is ${result.gate}. Review output carefully.\n`);
-    } else if (result.gate === 'REVIEWABLE') {
-      process.stderr.write(`Warning: Derivation gate is REVIEWABLE. Some sections may need manual adjustment.\n`);
+    // Human-readable summary to stderr
+    process.stderr.write(`\nDerived world written to: ${result.outputPath}\n`);
+    process.stderr.write(`Derivation Gate: ${result.gate}\n`);
+
+    if (result.findings.length > 0) {
+      process.stderr.write(`\n`);
+
+      const errs = result.findings.filter(f => f.severity === 'error');
+      const warns = result.findings.filter(f => f.severity === 'warning');
+
+      if (errs.length > 0) {
+        process.stderr.write(`Errors (${errs.length}):\n`);
+        for (const f of errs) {
+          process.stderr.write(`  ERROR [${f.section}]: ${f.message}\n`);
+        }
+      }
+
+      if (warns.length > 0) {
+        process.stderr.write(`Warnings (${warns.length}):\n`);
+        for (const f of warns) {
+          process.stderr.write(`  WARN  [${f.section}]: ${f.message}\n`);
+        }
+      }
+
+      process.stderr.write(`\n`);
     }
 
+    if (result.gate === 'SUSPECT' || result.gate === 'DERIVATION_REJECTED') {
+      process.stderr.write(`The file has been written. Open ${result.outputPath} to review and fix.\n`);
+    }
+
+    // Machine-readable JSON to stdout
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     process.exit(exitCode);
   } catch (e) {
