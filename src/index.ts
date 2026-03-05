@@ -87,6 +87,7 @@ export { deriveWorld, extractWorldMarkdown } from './engine/derive-engine';
 
 export type {
   DeriveResult,
+  DeriveFinding,
   DeriveExitCode,
   CollectedSource,
   AIProviderConfig,
