@@ -1,8 +1,15 @@
-# NeuroVerse Governance
+# NeuroVerse Governance — Deterministic Governance Engine for AI Agents
 
 **Define governance rules once and enforce them anywhere AI or automated systems operate.**
 
-NeuroVerse turns written ideas into portable governance systems — structured rules, variables, and outcomes that both humans and AI must operate inside.
+NeuroVerse Governance is a deterministic AI governance engine and policy engine for AI agents. It lets developers enforce AI guardrails, compliance rules, and safety policies on AI systems — with full audit trails and portable, world-based policy definitions. Use it as an agent governance layer for LangChain, OpenAI, or any AI framework.
+
+```bash
+npm install @neuroverseos/governance
+npx neuroverse init
+echo '{"intent":"delete_user","tool":"database"}' | npx neuroverse guard --world .neuroverse/worlds/governance_policy
+# → BLOCK: destructive database operation requires approval
+```
 
 ## The 10-Second Mental Model
 
@@ -28,16 +35,16 @@ World files are not locked to NeuroVerse. They are **portable rule systems** —
 ## Install
 
 ```bash
-npm install neuroverse-governance
+npm install @neuroverseos/governance
 ```
 
 ## Quick Start
 
 ```bash
-npm install neuroverse-governance
+npm install @neuroverseos/governance
 npx neuroverse init
-neuroverse build governance-policy.md
-neuroverse guard --world .neuroverse/worlds/governance_policy
+npx neuroverse build governance-policy.md
+npx neuroverse guard --world .neuroverse/worlds/governance_policy
 ```
 
 Or explore what's available:
