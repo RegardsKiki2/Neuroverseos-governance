@@ -84,6 +84,7 @@ export { BOOTSTRAP_EXIT_CODES } from './contracts/bootstrap-contract';
 // ─── Derive Engine ──────────────────────────────────────────────────────────
 
 export { deriveWorld, extractWorldMarkdown } from './engine/derive-engine';
+export { normalizeWorldMarkdown } from './engine/derive-normalizer';
 
 export type {
   DeriveResult,

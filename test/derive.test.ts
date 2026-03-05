@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { extractWorldMarkdown } from '../src/engine/derive-engine';
+import { normalizeWorldMarkdown } from '../src/engine/derive-normalizer';
 import {
   collectMarkdownSources,
   concatenateSources,
@@ -309,5 +310,286 @@ describe('dry run', () => {
     expect(dryRunOutput).toBeDefined();
     expect(dryRunOutput!.systemPrompt).toContain('.nv-world.md');
     expect(dryRunOutput!.userPrompt).toContain('Test');
+  });
+});
+
+// ─── Normalizer Tests ──────────────────────────────────────────────────────
+
+describe('normalizeWorldMarkdown', () => {
+  describe('invariant normalization', () => {
+    it('leaves valid invariants unchanged', () => {
+      const md = '# Invariants\n- `my_id` — Description (structural, immutable)\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(0);
+      expect(normalized).toContain('`my_id`');
+    });
+
+    it('adds backticks to snake_case IDs', () => {
+      const md = '# Invariants\n- rage_manifestation — Suppressed rage manifests (structural, immutable)\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('`rage_manifestation`');
+    });
+
+    it('converts bold IDs to backtick IDs', () => {
+      const md = '# Invariants\n- **Rage Manifestation** — Description\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('`rage_manifestation`');
+      expect(normalized).toContain('(structural, immutable)');
+    });
+
+    it('generates ID from prose description', () => {
+      const md = '# Invariants\n- Suppressed rage manifests as a monster (structural, immutable)\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('`suppressed_rage_manifests_as_a_monster`');
+    });
+
+    it('normalized invariants pass the parser', () => {
+      const md = `---
+world_id: test
+name: Test
+---
+
+# Thesis
+
+Test thesis.
+
+# Invariants
+
+- rage_manifestation — Suppressed rage manifests (structural, immutable)
+- **Bold Id** — Bold description
+
+# Gates
+
+- BEST: score >= 90
+- WORST: score <= 10
+`;
+      const { normalized } = normalizeWorldMarkdown(md);
+      const { issues } = parseWorldMarkdown(normalized);
+      const invErrors = issues.filter(i => i.section === 'Invariants' && i.severity === 'error');
+      expect(invErrors).toHaveLength(0);
+    });
+  });
+
+  describe('gate normalization', () => {
+    it('leaves valid gates unchanged', () => {
+      const md = '# Gates\n- THRIVING: score >= 80\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(0);
+      expect(normalized).toContain('score >= 80');
+    });
+
+    it('converts symbolic values to numeric', () => {
+      const md = '# Gates\n- BEST: integration = full\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('integration >= 100');
+    });
+
+    it('converts = to >= for numeric values', () => {
+      const md = '# Gates\n- WARNING: score = 30\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('score >= 30');
+    });
+
+    it('converts quoted symbolic values', () => {
+      const md = '# Gates\n- STATUS: field == "partial"\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('field >= 60');
+    });
+
+    it('normalized gates pass the parser', () => {
+      const md = `---
+world_id: test
+name: Test
+---
+
+# Thesis
+
+Test thesis.
+
+# Invariants
+
+- \`inv\` — Test (structural, immutable)
+
+# Gates
+
+- BEST: integration = full
+- GOOD: integration = partial
+- WORST: integration = none
+`;
+      const { normalized } = normalizeWorldMarkdown(md);
+      const { issues } = parseWorldMarkdown(normalized);
+      const gateErrors = issues.filter(i => i.section === 'Gates' && i.severity === 'error');
+      expect(gateErrors).toHaveLength(0);
+    });
+  });
+
+  describe('trigger normalization', () => {
+    it('leaves valid triggers unchanged', () => {
+      const md = '# Rules\n## rule-001: Test (structural)\nWhen score > 50 [state]\nThen score *= 0.5\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(0);
+      expect(normalized).toContain('[state]');
+    });
+
+    it('adds [state] to triggers missing source tag', () => {
+      const md = '# Rules\n## rule-001: Test (structural)\nWhen score > 50\nThen score *= 0.5\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('score > 50 [state]');
+    });
+
+    it('adds [state] to each part of AND triggers', () => {
+      const md = '# Rules\n## rule-001: Test (structural)\nWhen score > 50 AND level < 3\nThen score *= 0.5\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(1);
+      expect(normalized).toContain('score > 50 [state] AND level < 3 [state]');
+    });
+
+    it('preserves existing [assumption] tags', () => {
+      const md = '# Rules\n## rule-001: Test (structural)\nWhen mode == "hard" [assumption] AND score > 50\nThen score *= 0.5\n';
+      const { normalized } = normalizeWorldMarkdown(md);
+      expect(normalized).toContain('[assumption]');
+      expect(normalized).toContain('score > 50 [state]');
+    });
+  });
+
+  describe('no interference across sections', () => {
+    it('does not normalize non-invariant bullets in other sections', () => {
+      const md = '# State\n## my_var\n- type: number\n- default: 50\n';
+      const { fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(0);
+    });
+
+    it('does not modify lines outside sections', () => {
+      const md = '---\nworld_id: test\nname: Test\n---\n';
+      const { normalized, fixCount } = normalizeWorldMarkdown(md);
+      expect(fixCount).toBe(0);
+      expect(normalized).toBe(md);
+    });
+  });
+
+  describe('end-to-end: AI drift → normalized → parseable', () => {
+    it('fully normalizes a drifted AI output into a parseable world', () => {
+      const drifted = `---
+world_id: horror_test
+name: Horror Test World
+version: 1.0.0
+---
+
+# Thesis
+
+Suppressed rage manifests as physical destruction.
+
+# Invariants
+
+- rage_manifestation — Suppressed rage manifests as a physical monster (structural, immutable)
+- **Healing Requires Integration** — Recovery requires emotional integration
+- Josie must survive all scenarios (structural, immutable)
+
+# State
+
+## rage_level
+- type: number
+- min: 0
+- max: 100
+- default: 30
+- label: Rage Level
+- description: Current suppressed rage intensity
+
+## integration_level
+- type: number
+- min: 0
+- max: 100
+- default: 10
+- label: Integration Level
+- description: Emotional integration progress
+
+# Assumptions
+
+## baseline
+- name: Baseline
+- description: Default horror scenario
+
+# Rules
+
+## rule-001: Rage Escalation (structural)
+Rage increases when suppressed.
+
+When rage_level > 50 AND integration_level < 30
+Then rage_level += 10
+
+> trigger: Rage is high and integration is low
+> rule: Suppression amplifies rage
+> shift: Rage escalates
+> effect: Rage level increases
+
+# Gates
+
+- RESOLVED: integration_level = full
+- MANAGING: integration_level = partial
+- DANGEROUS: rage_level = escalating
+- CRITICAL: rage_level = extreme
+- COLLAPSE: rage_level = indiscriminate
+
+# Outcomes
+
+## integration_level
+- type: number
+- range: 0-100
+- display: percentage
+- label: Integration Level
+- primary: true
+`;
+      const { normalized, fixCount } = normalizeWorldMarkdown(drifted);
+      expect(fixCount).toBeGreaterThan(0);
+
+      const { world, issues } = parseWorldMarkdown(normalized);
+      const errors = issues.filter(i => i.severity === 'error');
+
+      // Invariants should parse
+      expect(world).not.toBeNull();
+      expect(world!.invariants.length).toBeGreaterThanOrEqual(2);
+
+      // Gates should parse
+      expect(world!.gates.length).toBe(5);
+
+      // Triggers should have [state] tags
+      expect(world!.rules[0].triggers.length).toBe(2);
+
+      // No invariant or gate parse errors
+      const invErrors = errors.filter(e => e.section === 'Invariants');
+      const gateErrors = errors.filter(e => e.section === 'Gates');
+      expect(invErrors).toHaveLength(0);
+      expect(gateErrors).toHaveLength(0);
+    });
+  });
+});
+
+// ─── Prompt Reinforcement Tests ────────────────────────────────────────────
+
+describe('prompt reinforcement', () => {
+  it('system prompt contains invariant syntax guidance', async () => {
+    const prompt = await buildSystemPrompt();
+    expect(prompt).toContain('Invariant IDs MUST be wrapped in backticks');
+    expect(prompt).toContain('VALID examples');
+    expect(prompt).toContain('INVALID examples');
+  });
+
+  it('system prompt contains gate numeric requirement', async () => {
+    const prompt = await buildSystemPrompt();
+    expect(prompt).toContain('Gate thresholds MUST be numeric');
+    expect(prompt).toContain('Symbolic values like');
+  });
+
+  it('system prompt contains syntax precision section', async () => {
+    const prompt = await buildSystemPrompt();
+    expect(prompt).toContain('Syntax Precision (CRITICAL)');
+    expect(prompt).toContain('deterministic regex parser');
   });
 });

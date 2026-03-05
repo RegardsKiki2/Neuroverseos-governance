@@ -124,12 +124,25 @@ version: 1.0.0
 A single paragraph stating the structural claim this world tests. Must be testable and falsifiable.
 
 # Invariants
-Bullet list of non-negotiable constraints:
-- \`invariant_id\` — Description (structural, immutable)
-- \`another_id\` — Description (operational, immutable)
+Bullet list of non-negotiable constraints.
 
-Use "structural" for constraints derived directly from source material.
-Use "operational" for constraints you inferred.
+STRICT FORMAT — Invariant IDs MUST be wrapped in backticks. Every bullet MUST follow this exact pattern:
+- \\\`invariant_id\\\` — Description text (enforcement, mutability)
+
+VALID examples:
+- \\\`rage_manifestation\\\` — Suppressed rage manifests as a physical monster (structural, immutable)
+- \\\`healing_requires_integration\\\` — Recovery requires emotional integration (operational, immutable)
+
+INVALID examples (these WILL cause parse failures):
+- rage_manifestation — Suppressed rage manifests as a monster
+- Suppressed rage manifests as a monster (structural, immutable)
+- **rage_manifestation** — Description
+
+Rules:
+- The ID inside backticks must be snake_case (lowercase with underscores)
+- Use "structural" for constraints derived directly from source material
+- Use "operational" for constraints you inferred
+- Mutability is almost always "immutable"
 
 # State
 H2 sub-sections, each defining a state variable:
@@ -142,6 +155,8 @@ H2 sub-sections, each defining a state variable:
 - default: <value>
 - label: Human Label
 - description: What this variable represents
+
+IMPORTANT: State variable IDs (the ## heading) must be snake_case. The "default" value MUST be numeric for number types and MUST be one of the declared options for enum types.
 
 # Assumptions
 H2 sub-sections, each defining a scenario profile:
@@ -169,13 +184,39 @@ Rules must have:
 - A "Then" line with effects using =, *=, +=, or -= operators
 - Optional "Collapse:" line for failure conditions
 
+STRICT FORMAT for triggers — each trigger MUST match: field_name <operator> <value> [state|assumption]
+- Operators: ==, !=, >=, <=, >, <
+- Values must be numeric (50), boolean (true/false), or quoted strings ("value")
+- Source tag [state] or [assumption] is REQUIRED
+
+STRICT FORMAT for effects — each effect MUST match: target_field <operator> <value>
+- Operators: =, *=, +=, -=
+- Values must be numeric (0.30), boolean (true/false), or quoted strings ("value")
+
 # Gates
-Bullet list of status thresholds (must be monotonically decreasing):
-- BEST_STATUS: primary_metric >= <highest_value>
-- GOOD_STATUS: primary_metric >= <lower_value>
-- WARN_STATUS: primary_metric >= <even_lower>
-- BAD_STATUS: primary_metric > <near_bottom>
-- WORST_STATUS: primary_metric <= <bottom>
+Bullet list of status thresholds (must be monotonically decreasing).
+
+STRICT FORMAT — Gate thresholds MUST be numeric. Symbolic values like "full", "partial", "escalating" are NOT allowed. Every gate MUST follow this exact pattern:
+- STATUS_NAME: field_name >= <number>
+
+VALID examples:
+- BEST_STATUS: integration_level >= 90
+- GOOD_STATUS: integration_level >= 60
+- WARN_STATUS: monster_rage >= 40
+- BAD_STATUS: monster_rage >= 70
+- WORST_STATUS: josie_endangerment >= 90
+
+INVALID examples (these WILL cause parse failures):
+- BEST_STATUS: integration = full
+- GOOD_STATUS: integration = partial
+- BEST_STATUS: true_integration_state == "complete"
+
+Rules:
+- All gate thresholds must be NUMERIC values (integers or decimals)
+- The field_name must reference a declared State variable or Outcome
+- Operators: >=, <=, >, <, ==, !=
+- Status names should be uppercase with underscores
+- Thresholds must be monotonically decreasing from best to worst status
 
 # Outcomes
 H2 sub-sections defining computed outcomes:
@@ -222,7 +263,27 @@ ${invariantLines.join('\n')}
 7. Every rule must have a When trigger line and a Then effect line.
 8. Gate thresholds must be monotonically decreasing from best to worst status.
 9. The frontmatter must include world_id, name, and version.
-10. Rule descriptions must be a single sentence.`;
+10. Rule descriptions must be a single sentence.
+
+## Syntax Precision (CRITICAL)
+
+The output is parsed by a deterministic regex parser. If the syntax is wrong, the parse FAILS.
+
+INVARIANTS: Every invariant bullet MUST use backtick-wrapped IDs:
+  CORRECT: - \\\`my_invariant_id\\\` — Description (structural, immutable)
+  WRONG:   - my_invariant_id — Description
+
+GATES: Every gate MUST use NUMERIC thresholds:
+  CORRECT: - THRIVING: score >= 80
+  WRONG:   - THRIVING: state = optimal
+
+TRIGGERS: Every trigger MUST end with [state] or [assumption]:
+  CORRECT: When score < 25 [state]
+  WRONG:   When score < 25
+
+EFFECTS: Every effect MUST use a recognized operator:
+  CORRECT: Then score *= 0.50, active = false
+  WRONG:   Then score decreases by half`;
 }
 
 // ─── User Prompt ────────────────────────────────────────────────────────────

@@ -12,6 +12,9 @@
 
 import { writeFile } from 'fs/promises';
 import { parseWorldMarkdown } from './bootstrap-parser';
+import { normalizeWorldMarkdown } from './derive-normalizer';
+import { emitWorldDefinition } from './bootstrap-emitter';
+import { validateWorld } from './validate-engine';
 import {
   collectMarkdownSources,
   concatenateSources,
@@ -177,8 +180,11 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
     );
   }
 
-  // 7. Validate with parseWorldMarkdown
-  const { world, issues } = parseWorldMarkdown(extracted);
+  // 7. Normalize AI output to fix common drift patterns
+  const { normalized, fixCount } = normalizeWorldMarkdown(extracted);
+
+  // 8. Validate with parseWorldMarkdown
+  const { world, issues } = parseWorldMarkdown(normalized);
   const errors = issues.filter(i => i.severity === 'error');
   const warnings = issues.filter(i => i.severity === 'warning');
 
@@ -191,10 +197,35 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
       })
     : [];
 
-  // 8. Advisory gate classification
-  const gate = classifyGate(errors.length, warnings.length, sectionsDetected.length);
+  // 9. Run full validator if parsing produced a usable world
+  //    This catches referential integrity, semantic tensions, orphans, schema violations
+  if (world && options.validate) {
+    try {
+      const { world: worldDef } = emitWorldDefinition(world);
+      const report = validateWorld(worldDef);
+      for (const finding of report.findings) {
+        if (finding.severity === 'error' || finding.severity === 'warning') {
+          issues.push({
+            line: 0,
+            section: `Validate:${finding.category}`,
+            message: finding.message,
+            severity: finding.severity,
+          });
+        }
+      }
+    } catch {
+      // Emission can fail on incomplete worlds — that's fine, parser errors cover it
+    }
+  }
 
-  // 9. Build findings for CLI output
+  // Recount after validation
+  const allErrors = issues.filter(i => i.severity === 'error');
+  const allWarnings = issues.filter(i => i.severity === 'warning');
+
+  // 10. Advisory gate classification
+  const gate = classifyGate(allErrors.length, allWarnings.length, sectionsDetected.length);
+
+  // 11. Build findings for CLI output
   const findings = issues
     .filter(i => i.severity === 'error' || i.severity === 'warning')
     .map(i => ({
@@ -204,12 +235,15 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
       line: i.line,
     }));
 
-  // 10. ALWAYS write the file so users can inspect and iterate
+  // 12. ALWAYS write the file so users can inspect and iterate
   //     Gate status is advisory — never blocks file writing
   //     Embed diagnostics as HTML comment when findings exist
-  let output = extracted;
-  if (findings.length > 0) {
+  let output = normalized;
+  if (findings.length > 0 || fixCount > 0) {
     const lines = [`<!-- DERIVATION STATUS: ${gate}`];
+    if (fixCount > 0) {
+      lines.push(``, `Normalizer: ${fixCount} fix(es) applied to AI output`);
+    }
     const errs = findings.filter(f => f.severity === 'error');
     const warns = findings.filter(f => f.severity === 'warning');
     if (errs.length > 0) {
@@ -221,20 +255,20 @@ export async function deriveWorld(options: DeriveOptions): Promise<{
       for (const f of warns) lines.push(`- [${f.section}] ${f.message}`);
     }
     lines.push('-->', '');
-    output = lines.join('\n') + extracted;
+    output = lines.join('\n') + normalized;
   }
 
   await writeFile(options.outputPath, output, 'utf-8');
 
-  const hasErrors = errors.length > 0;
+  const hasErrors = allErrors.length > 0;
 
   return {
     result: {
       success: !hasErrors,
       outputPath: options.outputPath,
       sectionsDetected,
-      validationErrors: errors.length,
-      validationWarnings: warnings.length,
+      validationErrors: allErrors.length,
+      validationWarnings: allWarnings.length,
       findings,
       gate,
       durationMs: performance.now() - startTime,
