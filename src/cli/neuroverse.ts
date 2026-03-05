@@ -19,6 +19,8 @@ neuroverse — Turn ideas into worlds.
 Commands:
   build          Build a world from markdown (derive + compile in one step)
   explain        Human-readable summary of a compiled world
+  simulate       Step-by-step state evolution
+  improve        Actionable suggestions for strengthening a world
   init           Scaffold a new .nv-world.md template
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
@@ -29,6 +31,8 @@ Commands:
 Usage:
   neuroverse build <input.md> [--output <dir>]
   neuroverse explain <world-path-or-id> [--json]
+  neuroverse simulate <world-path-or-id> [--steps N] [--set key=value] [--profile name]
+  neuroverse improve <world-path-or-id> [--json]
   neuroverse init [--name "World Name"] [--output path]
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
@@ -39,6 +43,8 @@ Usage:
 Examples:
   neuroverse build horror-notes.md
   neuroverse explain inherited_silence
+  neuroverse simulate inherited_silence --steps 5
+  neuroverse improve inherited_silence
   neuroverse build ./docs/ --output ./my-world/
   neuroverse init --name "Customer Service Governance"
   neuroverse validate --world ./world/ --format summary
@@ -58,6 +64,14 @@ async function main(): Promise<void> {
     case 'explain': {
       const { main: explainMain } = await import('./explain');
       return explainMain(subArgs);
+    }
+    case 'simulate': {
+      const { main: simulateMain } = await import('./simulate');
+      return simulateMain(subArgs);
+    }
+    case 'improve': {
+      const { main: improveMain } = await import('./improve');
+      return improveMain(subArgs);
     }
     case 'init': {
       const { main: initMain } = await import('./init');

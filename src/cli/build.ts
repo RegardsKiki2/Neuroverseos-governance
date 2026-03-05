@@ -366,7 +366,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
     write(`\nNext steps:\n`);
     write(`  Explore    neuroverse explain ${worldId}\n`);
-    write(`  Validate   neuroverse validate --world ${outputDir}\n`);
+    write(`  Simulate   neuroverse simulate ${worldId}\n`);
+    write(`  Improve    neuroverse improve ${worldId}\n`);
     write(`\n`);
 
     process.exit(0);

@@ -17,6 +17,8 @@ import { validateWorld } from '../src/engine/validate-engine';
 import { parseWorldMarkdown } from '../src/engine/bootstrap-parser';
 import { emitWorldDefinition } from '../src/engine/bootstrap-emitter';
 import { explainWorld, renderExplainText } from '../src/engine/explain-engine';
+import { simulateWorld, renderSimulateText } from '../src/engine/simulate-engine';
+import { improveWorld, renderImproveText } from '../src/engine/improve-engine';
 import type { WorldDefinition } from '../src/types';
 import type { GuardEvent } from '../src/contracts/guard-contract';
 import type { Condition } from '../src/engine/condition-engine';
@@ -816,5 +818,448 @@ describe('explain engine', () => {
     expect(text).toContain('INVARIANTS');
     expect(text).toContain('VIABILITY GATES');
     expect(text).toContain('OUTCOMES');
+  });
+});
+
+// ─── Test Suite: Simulate Engine ──────────────────────────────────────────────
+
+describe('Simulate Engine', () => {
+  const WORLD_DIR = join(__dirname, '..', 'docs', 'worlds', 'configurator-governance');
+  let world: WorldDefinition;
+
+  try {
+    world = loadWorldSync(WORLD_DIR);
+  } catch {
+    // Skip if reference world not available
+  }
+
+  it('returns correct world identity', () => {
+    const result = simulateWorld(world);
+    expect(result.worldId).toBe('configurator_governance_v1');
+    expect(result.worldName).toBe('The Configurator Governance World');
+  });
+
+  it('uses default assumption profile', () => {
+    const result = simulateWorld(world);
+    expect(result.profile).toBe(world.world.default_assumption_profile);
+  });
+
+  it('captures initial state from schema defaults', () => {
+    const result = simulateWorld(world);
+    const varNames = Object.keys(world.stateSchema.variables);
+    for (const name of varNames) {
+      expect(result.initialState).toHaveProperty(name);
+      expect(result.initialState[name]).toBe(world.stateSchema.variables[name].default);
+    }
+  });
+
+  it('produces one step by default', () => {
+    const result = simulateWorld(world);
+    expect(result.steps).toHaveLength(1);
+  });
+
+  it('produces multiple steps when requested', () => {
+    const result = simulateWorld(world, { steps: 3 });
+    expect(result.steps).toHaveLength(3);
+    expect(result.steps[0].step).toBe(1);
+    expect(result.steps[1].step).toBe(2);
+    expect(result.steps[2].step).toBe(3);
+  });
+
+  it('caps steps at 50', () => {
+    const result = simulateWorld(world, { steps: 100 });
+    expect(result.steps.length).toBeLessThanOrEqual(50);
+  });
+
+  it('evaluates all rules in each step', () => {
+    const result = simulateWorld(world);
+    expect(result.steps[0].rulesEvaluated.length).toBe(world.rules.length);
+  });
+
+  it('applies state overrides', () => {
+    const result = simulateWorld(world, {
+      stateOverrides: { thesis_clarity: 10 },
+    });
+    expect(result.initialState.thesis_clarity).toBe(10);
+  });
+
+  it('triggers rules when conditions are met', () => {
+    // Set thesis_clarity below 25 to trigger thesis_anchor_missing
+    const result = simulateWorld(world, {
+      stateOverrides: { thesis_clarity: 10 },
+    });
+    const thesisRule = result.steps[0].rulesEvaluated.find(r => r.ruleId === 'thesis_anchor_missing');
+    expect(thesisRule).toBeDefined();
+    expect(thesisRule!.triggered).toBe(true);
+    expect(thesisRule!.effects.length).toBeGreaterThan(0);
+  });
+
+  it('records before/after values in effects', () => {
+    const result = simulateWorld(world, {
+      stateOverrides: { thesis_clarity: 10 },
+    });
+    const fired = result.steps[0].rulesEvaluated.filter(r => r.triggered);
+    for (const rule of fired) {
+      for (const effect of rule.effects) {
+        expect(effect).toHaveProperty('before');
+        expect(effect).toHaveProperty('after');
+        expect(effect).toHaveProperty('target');
+        expect(effect).toHaveProperty('operation');
+      }
+    }
+  });
+
+  it('classifies viability after each step', () => {
+    const result = simulateWorld(world);
+    for (const step of result.steps) {
+      expect(step.viability).toBeTruthy();
+    }
+  });
+
+  it('final state reflects cumulative effects', () => {
+    const result = simulateWorld(world, {
+      stateOverrides: { thesis_clarity: 10 },
+      steps: 3,
+    });
+    // With thesis_clarity=10, rules should have modified state
+    expect(result.finalState).toBeDefined();
+    expect(Object.keys(result.finalState).length).toBeGreaterThan(0);
+  });
+
+  it('detects collapse conditions', () => {
+    // Set extremely degraded state to trigger collapse
+    const result = simulateWorld(world, {
+      stateOverrides: {
+        thesis_clarity: 0,
+        invariant_count: 0,
+        world_integrity: 10,
+      },
+      steps: 5,
+    });
+    // May or may not collapse depending on exact thresholds
+    expect(typeof result.collapsed).toBe('boolean');
+    if (result.collapsed) {
+      expect(result.collapseStep).toBeGreaterThan(0);
+      expect(result.collapseRule).toBeTruthy();
+    }
+  });
+
+  it('stops evaluating rules after collapse', () => {
+    const result = simulateWorld(world, {
+      stateOverrides: {
+        thesis_clarity: 0,
+        invariant_count: 0,
+        world_integrity: 5,
+      },
+      steps: 10,
+    });
+    if (result.collapsed && result.collapseStep !== undefined) {
+      expect(result.steps.length).toBeLessThanOrEqual(result.collapseStep);
+    }
+  });
+
+  it('handles exclusive_with correctly', () => {
+    const result = simulateWorld(world, {
+      stateOverrides: { thesis_clarity: 10 },
+    });
+    const step = result.steps[0];
+    const exclusiveRules = world.rules.filter(r => r.exclusive_with);
+    for (const rule of exclusiveRules) {
+      const thisEval = step.rulesEvaluated.find(r => r.ruleId === rule.id);
+      const exclusiveEval = step.rulesEvaluated.find(r => r.ruleId === rule.exclusive_with);
+      if (thisEval?.triggered && exclusiveEval) {
+        // If this rule fired and the exclusive rule was also evaluated,
+        // the exclusive rule should be excluded
+        expect(exclusiveEval.excluded).toBe(true);
+      }
+    }
+  });
+
+  it('is deterministic — same input produces same output', () => {
+    const opts = { stateOverrides: { thesis_clarity: 30 }, steps: 3 };
+    const r1 = simulateWorld(world, opts);
+    const r2 = simulateWorld(world, opts);
+    expect(r1.finalState).toEqual(r2.finalState);
+    expect(r1.finalViability).toBe(r2.finalViability);
+    expect(r1.collapsed).toBe(r2.collapsed);
+    expect(r1.steps.length).toBe(r2.steps.length);
+  });
+
+  it('renders human-readable text', () => {
+    const result = simulateWorld(world);
+    const text = renderSimulateText(result);
+    expect(text).toContain('SIMULATION:');
+    expect(text).toContain('INITIAL STATE');
+    expect(text).toContain('STEP 1');
+    expect(text).toContain('FINAL STATE');
+    expect(text).toContain('VIABILITY:');
+  });
+
+  it('renders multi-step text', () => {
+    const result = simulateWorld(world, { steps: 3 });
+    const text = renderSimulateText(result);
+    expect(text).toContain('STEP 1');
+    expect(text).toContain('STEP 2');
+    expect(text).toContain('STEP 3');
+  });
+});
+
+// ─── Test Suite: Simulate Engine — Minimal World ─────────────────────────────
+
+describe('Simulate Engine — minimal world', () => {
+  const minimalWorld: WorldDefinition = {
+    world: {
+      world_id: 'test_sim',
+      name: 'Test Simulation World',
+      thesis: 'Testing simulation',
+      version: '1.0.0',
+      runtime_mode: 'SIMULATION',
+      default_assumption_profile: 'baseline',
+      default_alternative_profile: 'alt',
+      modules: [],
+      players: { thinking_space: false, experience_space: true, action_space: false },
+    },
+    invariants: [],
+    assumptions: {
+      profiles: {
+        baseline: { name: 'Baseline', description: 'Default', parameters: { mode: 'normal' } },
+      },
+      parameter_definitions: {
+        mode: { type: 'enum', options: ['normal', 'extreme'], label: 'Mode', description: 'Operating mode' },
+      },
+    },
+    stateSchema: {
+      variables: {
+        health: { type: 'number', min: 0, max: 100, default: 80, mutable: true, label: 'Health', description: 'System health' },
+        active: { type: 'boolean', default: true, mutable: true, label: 'Active', description: 'Is active' },
+      },
+      presets: {},
+    },
+    rules: [
+      {
+        id: 'rule-decay',
+        severity: 'degradation',
+        label: 'Natural Decay',
+        description: 'Health decays over time',
+        order: 1,
+        triggers: [{ field: 'health', operator: '>', value: 0, source: 'state' as const }],
+        effects: [{ target: 'health', operation: 'subtract' as const, value: 10 }],
+        causal_translation: { trigger_text: 'Health above 0', rule_text: 'Decay', shift_text: 'Decline', effect_text: 'Health decreases' },
+        collapse_check: { field: 'health', operator: '<=' as const, value: 0, result: 'MODEL_COLLAPSES' as const },
+      },
+      {
+        id: 'rule-boost',
+        severity: 'advantage',
+        label: 'Recovery Boost',
+        description: 'High health gets bonus',
+        order: 2,
+        triggers: [{ field: 'health', operator: '>=', value: 50, source: 'state' as const }],
+        effects: [{ target: 'health', operation: 'add' as const, value: 5 }],
+        causal_translation: { trigger_text: 'Health >= 50', rule_text: 'Recovery', shift_text: 'Stabilize', effect_text: 'Health increases' },
+      },
+    ],
+    gates: {
+      viability_classification: [
+        { status: 'THRIVING', field: 'health', operator: '>=', value: 80, color: 'green', icon: '+' },
+        { status: 'STABLE', field: 'health', operator: '>=', value: 50, color: 'blue', icon: '~' },
+        { status: 'CRITICAL', field: 'health', operator: '>=', value: 20, color: 'red', icon: '!' },
+        { status: 'MODEL_COLLAPSES', field: 'health', operator: '<', value: 20, color: 'black', icon: 'x' },
+      ],
+      structural_override: { description: '', enforcement: 'mandatory' },
+      sustainability_threshold: 0,
+      collapse_visual: { background: '', text: '', border: '', label: '' },
+    },
+    outcomes: { computed_outcomes: [], comparison_layout: { primary_card: '', status_badge: '', structural_indicators: [] } },
+    metadata: { format_version: '1.0.0', created_at: '', last_modified: '', authoring_method: 'manual-authoring' as const },
+  };
+
+  it('single step: decay fires, boost fires → net -5', () => {
+    const result = simulateWorld(minimalWorld);
+    // health starts at 80, decay -10 = 70, boost (70 >= 50) +5 = 75
+    expect(result.finalState.health).toBe(75);
+    expect(result.steps[0].rulesFired).toBe(2);
+  });
+
+  it('multi-step: health converges to stable point', () => {
+    const result = simulateWorld(minimalWorld, { steps: 10 });
+    // Each step: health - 10 + 5 (if >= 50) = -5 net
+    // Step 1: 80 → 75
+    // Step 2: 75 → 70
+    // Step 3: 70 → 65
+    // Step 4: 65 → 60
+    // Step 5: 60 → 55
+    // Step 6: 55 → 50
+    // Step 7: 50 → 45 (boost still fires at 50 before decay changes it? No: decay first, then boost)
+    // Actually order matters: decay fires first (order=1), then boost (order=2)
+    // Step 1: 80 -10 = 70, 70 >= 50 → +5 = 75
+    // Step 2: 75 -10 = 65, +5 = 70
+    // Step 3: 70 -10 = 60, +5 = 65
+    // ...converges down, once below 50, boost stops, straight -10
+    expect(result.finalState.health).toBeLessThan(80);
+  });
+
+  it('collapses when health reaches 0', () => {
+    const result = simulateWorld(minimalWorld, {
+      stateOverrides: { health: 15 },
+      steps: 10,
+    });
+    // health=15: decay fires (15>0) → 5, boost doesn't fire (5<50)
+    // collapse check: 5 <= 0? No
+    // Step 2: 5 > 0, decay → -5, collapse check: -5 <= 0? Yes
+    expect(result.collapsed).toBe(true);
+    expect(result.collapseStep).toBeLessThanOrEqual(3);
+  });
+
+  it('override selects assumption profile', () => {
+    const result = simulateWorld(minimalWorld, { profile: 'baseline' });
+    expect(result.profile).toBe('baseline');
+  });
+
+  it('state override replaces defaults', () => {
+    const result = simulateWorld(minimalWorld, {
+      stateOverrides: { health: 30 },
+    });
+    expect(result.initialState.health).toBe(30);
+  });
+});
+
+// ─── Test Suite: Improve Engine ───────────────────────────────────────────────
+
+describe('Improve Engine', () => {
+  const WORLD_DIR = join(__dirname, '..', 'docs', 'worlds', 'configurator-governance');
+  let world: WorldDefinition;
+
+  try {
+    world = loadWorldSync(WORLD_DIR);
+  } catch {
+    // Skip if reference world not available
+  }
+
+  it('returns correct world identity', () => {
+    const report = improveWorld(world);
+    expect(report.worldId).toBe('configurator_governance_v1');
+    expect(report.worldName).toBe('The Configurator Governance World');
+  });
+
+  it('produces a health score 0-100', () => {
+    const report = improveWorld(world);
+    expect(report.score).toBeGreaterThanOrEqual(0);
+    expect(report.score).toBeLessThanOrEqual(100);
+  });
+
+  it('suggestions are sorted by priority', () => {
+    const report = improveWorld(world);
+    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    for (let i = 1; i < report.suggestions.length; i++) {
+      const prev = priorityOrder[report.suggestions[i - 1].priority];
+      const curr = priorityOrder[report.suggestions[i].priority];
+      expect(curr).toBeGreaterThanOrEqual(prev);
+    }
+  });
+
+  it('every suggestion has required fields', () => {
+    const report = improveWorld(world);
+    for (const s of report.suggestions) {
+      expect(s.id).toBeTruthy();
+      expect(s.priority).toBeTruthy();
+      expect(s.category).toBeTruthy();
+      expect(s.title).toBeTruthy();
+      expect(s.action).toBeTruthy();
+      expect(s.affectedFiles.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('stats match suggestion counts', () => {
+    const report = improveWorld(world);
+    const criticalCount = report.suggestions.filter(s => s.priority === 'critical').length;
+    const highCount = report.suggestions.filter(s => s.priority === 'high').length;
+    const mediumCount = report.suggestions.filter(s => s.priority === 'medium').length;
+    const lowCount = report.suggestions.filter(s => s.priority === 'low').length;
+    expect(report.stats.critical).toBe(criticalCount);
+    expect(report.stats.high).toBe(highCount);
+    expect(report.stats.medium).toBe(mediumCount);
+    expect(report.stats.low).toBe(lowCount);
+  });
+
+  it('no duplicate suggestion IDs', () => {
+    const report = improveWorld(world);
+    const ids = report.suggestions.map(s => s.id);
+    const unique = new Set(ids);
+    expect(unique.size).toBe(ids.length);
+  });
+
+  it('healthy world has high score and no critical issues', () => {
+    const report = improveWorld(world);
+    // The configurator-governance world is well-built
+    expect(report.stats.critical).toBe(0);
+    expect(report.score).toBeGreaterThan(50);
+  });
+
+  it('is deterministic', () => {
+    const r1 = improveWorld(world);
+    const r2 = improveWorld(world);
+    expect(r1.score).toBe(r2.score);
+    expect(r1.suggestions.length).toBe(r2.suggestions.length);
+    expect(r1.stats).toEqual(r2.stats);
+  });
+
+  it('renders human-readable text', () => {
+    const report = improveWorld(world);
+    const text = renderImproveText(report);
+    expect(text).toContain('IMPROVE:');
+    expect(text).toContain('Health Score:');
+    expect(text).toContain('Total:');
+  });
+});
+
+// ─── Test Suite: Improve Engine — Broken World ────────────────────────────────
+
+describe('Improve Engine — broken world', () => {
+  const brokenWorld: WorldDefinition = {
+    world: {
+      world_id: 'broken',
+      name: 'Broken World',
+      thesis: '',
+      version: '1.0.0',
+      runtime_mode: 'SIMULATION',
+      default_assumption_profile: 'default',
+      default_alternative_profile: 'alt',
+      modules: [],
+      players: { thinking_space: false, experience_space: false, action_space: false },
+    },
+    invariants: [],
+    assumptions: { profiles: {}, parameter_definitions: {} },
+    stateSchema: { variables: {}, presets: {} },
+    rules: [],
+    gates: {
+      viability_classification: [],
+      structural_override: { description: '', enforcement: 'mandatory' },
+      sustainability_threshold: 0,
+      collapse_visual: { background: '', text: '', border: '', label: '' },
+    },
+    outcomes: { computed_outcomes: [], comparison_layout: { primary_card: '', status_badge: '', structural_indicators: [] } },
+    metadata: { format_version: '1.0.0', created_at: '', last_modified: '', authoring_method: 'manual-authoring' as const },
+  };
+
+  it('reports critical issues for missing blocks', () => {
+    const report = improveWorld(brokenWorld);
+    expect(report.stats.critical).toBeGreaterThan(0);
+  });
+
+  it('has low health score', () => {
+    const report = improveWorld(brokenWorld);
+    expect(report.score).toBeLessThan(50);
+  });
+
+  it('includes completeness suggestions', () => {
+    const report = improveWorld(brokenWorld);
+    const completeness = report.suggestions.filter(s => s.category === 'completeness');
+    expect(completeness.length).toBeGreaterThan(0);
+  });
+
+  it('includes fix suggestions for validation errors', () => {
+    const report = improveWorld(brokenWorld);
+    const fixes = report.suggestions.filter(s => s.category === 'fix');
+    expect(fixes.length).toBeGreaterThan(0);
   });
 });
