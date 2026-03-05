@@ -1,8 +1,10 @@
 /**
- * NeuroVerse Governance — CLI Governance Engine
+ * NeuroVerse Governance — Portable Runtime Governance for AI
  *
- * Deterministic evaluation of events against world definitions.
- * Powers: neuroverse guard, neuroverse validate, neuroverse bootstrap
+ * Define the rules once. Run them anywhere AI operates.
+ *
+ * World files are portable governance definitions that can be
+ * evaluated by this engine or integrated into any runtime.
  *
  * Architecture:
  *   contracts/  — Type definitions (input/output schemas)
@@ -85,6 +87,31 @@ export { BOOTSTRAP_EXIT_CODES } from './contracts/bootstrap-contract';
 
 export { deriveWorld, extractWorldMarkdown } from './engine/derive-engine';
 export { normalizeWorldMarkdown } from './engine/derive-normalizer';
+export { explainWorld, renderExplainText } from './engine/explain-engine';
+export type { ExplainOutput } from './engine/explain-engine';
+
+// ─── Simulate Engine ────────────────────────────────────────────────────────
+
+export { simulateWorld, renderSimulateText } from './engine/simulate-engine';
+
+export type {
+  SimulateOptions,
+  SimulationResult,
+  SimulationStep,
+  RuleEvaluation,
+  AppliedEffect,
+} from './engine/simulate-engine';
+
+// ─── Improve Engine ─────────────────────────────────────────────────────────
+
+export { improveWorld, renderImproveText } from './engine/improve-engine';
+
+export type {
+  ImprovementReport,
+  Suggestion,
+  SuggestionPriority,
+  SuggestionCategory,
+} from './engine/improve-engine';
 
 export type {
   DeriveResult,

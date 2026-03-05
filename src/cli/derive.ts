@@ -7,15 +7,17 @@
  *   neuroverse derive --input ./docs/ --output ./derived.nv-world.md
  *   neuroverse derive --input ./notes.md --dry-run
  *   neuroverse derive --input ./docs/ --validate --model gpt-4.1
+ *   neuroverse derive --input ./notes.md --bootstrap ./world/
  *
  * Flags:
- *   --input <path>     Path to file or directory of markdown (required)
- *   --output <path>    Output path (default: ./derived.nv-world.md)
- *   --validate         Run parseWorldMarkdown on output (default: true)
- *   --dry-run          Print prompts, do not call AI
- *   --provider <name>  Override configured provider
- *   --model <name>     Override configured model
- *   --endpoint <url>   Override configured endpoint
+ *   --input <path>       Path to file or directory of markdown (required)
+ *   --output <path>      Output path (default: ./derived.nv-world.md)
+ *   --validate           Run parseWorldMarkdown on output (default: true)
+ *   --dry-run            Print prompts, do not call AI
+ *   --bootstrap <dir>    Auto-compile derived file into world JSON (skips manual bootstrap)
+ *   --provider <name>    Override configured provider
+ *   --model <name>       Override configured model
+ *   --endpoint <url>     Override configured endpoint
  *
  * Exit codes:
  *   0 = SUCCESS          (valid file written)
@@ -34,6 +36,7 @@ interface CliArgs {
   outputPath: string;
   validate: boolean;
   dryRun: boolean;
+  bootstrapDir?: string;
   provider?: string;
   model?: string;
   endpoint?: string;
@@ -44,6 +47,7 @@ function parseArgs(argv: string[]): CliArgs {
   let outputPath = './derived.nv-world.md';
   let validate = true;
   let dryRun = false;
+  let bootstrapDir: string | undefined;
   let provider: string | undefined;
   let model: string | undefined;
   let endpoint: string | undefined;
@@ -60,6 +64,8 @@ function parseArgs(argv: string[]): CliArgs {
       validate = false;
     } else if (arg === '--dry-run') {
       dryRun = true;
+    } else if (arg === '--bootstrap' && i + 1 < argv.length) {
+      bootstrapDir = argv[++i];
     } else if (arg === '--provider' && i + 1 < argv.length) {
       provider = argv[++i];
     } else if (arg === '--model' && i + 1 < argv.length) {
@@ -71,7 +77,7 @@ function parseArgs(argv: string[]): CliArgs {
 
   if (!inputPath) throw new DeriveInputError('--input <path> is required');
 
-  return { inputPath, outputPath, validate, dryRun, provider, model, endpoint };
+  return { inputPath, outputPath, validate, dryRun, bootstrapDir, provider, model, endpoint };
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -144,6 +150,18 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
     if (result.gate === 'SUSPECT' || result.gate === 'DERIVATION_REJECTED') {
       process.stderr.write(`The file has been written. Open ${result.outputPath} to review and fix.\n`);
+    }
+
+    // Auto-bootstrap if requested and derivation succeeded
+    if (args.bootstrapDir && exitCode === 0) {
+      process.stderr.write(`\nBootstrapping to ${args.bootstrapDir}...\n`);
+      const { main: bootstrapMain } = await import('./bootstrap');
+      await bootstrapMain([
+        '--input', result.outputPath,
+        '--output', args.bootstrapDir,
+        ...(args.validate ? ['--validate'] : []),
+      ]);
+      return; // bootstrap handles its own exit
     }
 
     // Machine-readable JSON to stdout

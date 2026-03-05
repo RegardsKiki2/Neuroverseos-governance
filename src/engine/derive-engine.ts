@@ -62,6 +62,12 @@ export function extractWorldMarkdown(raw: string): string | null {
     }
   }
 
+  // If content has H1 sections but no frontmatter, auto-inject one
+  if (!content.startsWith('---') && /^# /m.test(content)) {
+    const generated = generateFrontmatter(content);
+    content = generated + '\n' + content;
+  }
+
   // Safety check: must contain world_id in frontmatter
   if (!content.startsWith('---')) return null;
 
@@ -72,6 +78,41 @@ export function extractWorldMarkdown(raw: string): string | null {
   if (!frontmatter.includes('world_id:')) return null;
 
   return content;
+}
+
+/**
+ * Generate YAML frontmatter from content when the AI omits it.
+ *
+ * Extracts a world name from the Thesis section or first H1, then
+ * derives a snake_case world_id from it.
+ */
+function generateFrontmatter(content: string): string {
+  // Try to extract a name from Thesis section or first H1
+  let name = 'Derived World';
+
+  const thesisMatch = content.match(/^# Thesis\s*\n+(.+)/m);
+  if (thesisMatch) {
+    // Use first sentence of thesis as name (up to 60 chars)
+    const firstSentence = thesisMatch[1].replace(/[.!?].*$/, '').trim();
+    if (firstSentence.length >= 3 && firstSentence.length <= 60) {
+      name = firstSentence;
+    }
+  }
+
+  const worldId = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 50);
+
+  return [
+    '---',
+    `world_id: ${worldId}`,
+    `name: ${name}`,
+    'version: 0.1',
+    'runtime_mode: simulation',
+    '---',
+  ].join('\n');
 }
 
 // ─── Gate Classification (advisory) ─────────────────────────────────────────

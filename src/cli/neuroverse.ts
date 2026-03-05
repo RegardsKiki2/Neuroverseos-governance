@@ -14,31 +14,41 @@
  */
 
 const USAGE = `
-neuroverse — CLI Governance Tool
+neuroverse — Turn ideas into worlds.
 
 Commands:
+  build          Build a world from markdown (derive + compile in one step)
+  explain        Human-readable summary of a compiled world
+  simulate       Step-by-step state evolution
+  improve        Actionable suggestions for strengthening a world
   init           Scaffold a new .nv-world.md template
-  bootstrap      Compile .nv-world.md → world JSON files
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
   derive         AI-assisted synthesis of .nv-world.md from markdown
-  configure-ai   Configure AI provider credentials for derive
+  bootstrap      Compile .nv-world.md → world JSON files
+  configure-ai   Configure AI provider credentials
 
 Usage:
+  neuroverse build <input.md> [--output <dir>]
+  neuroverse explain <world-path-or-id> [--json]
+  neuroverse simulate <world-path-or-id> [--steps N] [--set key=value] [--profile name]
+  neuroverse improve <world-path-or-id> [--json]
   neuroverse init [--name "World Name"] [--output path]
-  neuroverse bootstrap --input <.md> --output <dir> [--validate]
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
   neuroverse derive --input <path> [--output <path>] [--dry-run]
+  neuroverse bootstrap --input <.md> --output <dir> [--validate]
   neuroverse configure-ai --provider <name> --model <name> --api-key <key>
 
 Examples:
+  neuroverse build horror-notes.md
+  neuroverse explain inherited_silence
+  neuroverse simulate inherited_silence --steps 5
+  neuroverse improve inherited_silence
+  neuroverse build ./docs/ --output ./my-world/
   neuroverse init --name "Customer Service Governance"
-  neuroverse bootstrap --input ./world.nv-world.md --output ./world/ --validate
   neuroverse validate --world ./world/ --format summary
   echo '{"intent":"delete user data"}' | neuroverse guard --world ./world/ --trace
-  neuroverse derive --input ./docs/ --output ./derived.nv-world.md
-  neuroverse configure-ai --provider openai --model gpt-4.1-mini --api-key sk-...
 `.trim();
 
 async function main(): Promise<void> {
@@ -47,6 +57,22 @@ async function main(): Promise<void> {
   const subArgs = args.slice(1);
 
   switch (command) {
+    case 'build': {
+      const { main: buildMain } = await import('./build');
+      return buildMain(subArgs);
+    }
+    case 'explain': {
+      const { main: explainMain } = await import('./explain');
+      return explainMain(subArgs);
+    }
+    case 'simulate': {
+      const { main: simulateMain } = await import('./simulate');
+      return simulateMain(subArgs);
+    }
+    case 'improve': {
+      const { main: improveMain } = await import('./improve');
+      return improveMain(subArgs);
+    }
     case 'init': {
       const { main: initMain } = await import('./init');
       return initMain(subArgs);

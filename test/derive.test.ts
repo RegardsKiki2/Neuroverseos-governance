@@ -18,6 +18,8 @@ import {
 } from '../src/engine/derive-prompt';
 import { parseWorldMarkdown } from '../src/engine/bootstrap-parser';
 import { DERIVE_EXIT_CODES, CONFIGURE_AI_EXIT_CODES } from '../src/contracts/derive-contract';
+import { humanLabel, traceCausalChains } from '../src/cli/build';
+import type { ParsedRule } from '../src/contracts/bootstrap-contract';
 
 // ─── Test Fixtures ──────────────────────────────────────────────────────────
 
@@ -143,6 +145,46 @@ describe('extractWorldMarkdown', () => {
     const result = extractWorldMarkdown(withPreamble);
     expect(result).not.toBeNull();
     expect(result).toContain('world_id: test_derived');
+  });
+
+  it('auto-injects frontmatter when AI output has H1 sections but no frontmatter', () => {
+    const noFrontmatter = `# Thesis
+The Inherited Silence
+
+# Invariants
+- \`rage_suppression\` — Suppressed rage manifests physically (structural, immutable)
+
+# State
+## tension_level
+- type: number
+- default: 50
+`;
+    const result = extractWorldMarkdown(noFrontmatter);
+    expect(result).not.toBeNull();
+    expect(result).toContain('world_id:');
+    expect(result).toContain('---');
+    expect(result).toContain('# Thesis');
+    expect(result).toContain('# Invariants');
+  });
+
+  it('derives world_id from thesis content', () => {
+    const noFrontmatter = `# Thesis
+The Inherited Silence
+
+# State
+## x
+- type: number
+`;
+    const result = extractWorldMarkdown(noFrontmatter);
+    expect(result).not.toBeNull();
+    expect(result).toContain('world_id: the_inherited_silence');
+    expect(result).toContain('name: The Inherited Silence');
+  });
+
+  it('still rejects content with no H1 sections and no frontmatter', () => {
+    const bad = 'Just some text without any structure or sections.';
+    const result = extractWorldMarkdown(bad);
+    expect(result).toBeNull();
   });
 });
 
@@ -644,5 +686,97 @@ Then a *= 0.5
     expect(report.gateThresholds).toBe(1);
     expect(report.triggerTags).toBe(1);
     expect(report.fixCount).toBe(3);
+  });
+});
+
+// ─── Build Command Tests ────────────────────────────────────────────────────
+
+describe('humanLabel', () => {
+  it('translates validator categories to human-readable labels', () => {
+    expect(humanLabel('Validate:guard-coverage')).toBe('STORY INSIGHT');
+    expect(humanLabel('Validate:semantic-tension')).toBe('DRAMATIC TENSION');
+    expect(humanLabel('Validate:orphan')).toBe('MISSING CAUSALITY');
+    expect(humanLabel('Validate:contradiction')).toBe('CONFLICT DETECTED');
+    expect(humanLabel('Validate:referential-integrity')).toBe('BROKEN REFERENCE');
+    expect(humanLabel('Validate:completeness')).toBe('INCOMPLETE STRUCTURE');
+    expect(humanLabel('Validate:schema-violation')).toBe('VALUE OUT OF RANGE');
+  });
+
+  it('handles raw section names without Validate: prefix', () => {
+    expect(humanLabel('guard-coverage')).toBe('STORY INSIGHT');
+    expect(humanLabel('semantic-tension')).toBe('DRAMATIC TENSION');
+  });
+
+  it('falls back to uppercased section for unknown categories', () => {
+    expect(humanLabel('Validate:some-new-thing')).toBe('VALIDATE:SOME-NEW-THING');
+    expect(humanLabel('Rules')).toBe('RULES');
+  });
+});
+
+// ─── Causal Chain Tracer Tests ──────────────────────────────────────────────
+
+describe('traceCausalChains', () => {
+  function makeRule(id: string, triggerField: string, effectTarget: string): ParsedRule {
+    return {
+      id,
+      label: id,
+      severity: 'structural',
+      order: 0,
+      triggers: [{ field: triggerField, operator: '>', value: 50, source: 'state' as const }],
+      effects: [{ target: effectTarget, operation: 'multiply', value: 0.5 }],
+      line: 0,
+    };
+  }
+
+  it('traces a simple A -> B -> C chain', () => {
+    const rules = [
+      makeRule('r1', 'rage', 'violence'),
+      makeRule('r2', 'violence', 'danger'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeGreaterThan(0);
+    const longest = chains[0];
+    expect(longest).toContain('violence');
+    expect(longest).toContain('danger');
+  });
+
+  it('traces longer chains', () => {
+    const rules = [
+      makeRule('r1', 'rage', 'violence'),
+      makeRule('r2', 'violence', 'accuracy'),
+      makeRule('r3', 'accuracy', 'endangerment'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeGreaterThan(0);
+    const longest = chains[0];
+    expect(longest.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('returns empty for rules with no connections', () => {
+    const rules = [
+      makeRule('r1', 'a', 'b'),
+      makeRule('r2', 'c', 'd'),
+    ];
+    const chains = traceCausalChains(rules);
+    // Each rule produces a chain of length 1 (just the target), which is filtered out
+    // since we require length >= 2
+    for (const chain of chains) {
+      expect(chain.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('limits to 3 chains', () => {
+    const rules = [
+      makeRule('r1', 'a', 'b'),
+      makeRule('r2', 'b', 'c'),
+      makeRule('r3', 'x', 'y'),
+      makeRule('r4', 'y', 'z'),
+      makeRule('r5', 'm', 'n'),
+      makeRule('r6', 'n', 'o'),
+      makeRule('r7', 'p', 'q'),
+      makeRule('r8', 'q', 'r'),
+    ];
+    const chains = traceCausalChains(rules);
+    expect(chains.length).toBeLessThanOrEqual(3);
   });
 });
