@@ -25,6 +25,8 @@ Commands:
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
   trace          Runtime action audit log
+  impact         Counterfactual governance impact report
+  world          World management (status, diff, snapshot, rollback)
   derive         AI-assisted synthesis of .nv-world.md from markdown
   bootstrap      Compile .nv-world.md → world JSON files
   configure-ai   Configure AI provider credentials
@@ -38,6 +40,11 @@ Usage:
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
   neuroverse trace [--log <path>] [--summary] [--filter BLOCK] [--last 20]
+  neuroverse impact [--log <path>] [--json]
+  neuroverse world status <path>
+  neuroverse world diff <path1> <path2>
+  neuroverse world snapshot <path>
+  neuroverse world rollback <path>
   neuroverse derive --input <path> [--output <path>] [--dry-run]
   neuroverse bootstrap --input <.md> --output <dir> [--validate]
   neuroverse configure-ai --provider <name> --model <name> --api-key <key>
@@ -94,6 +101,14 @@ async function main(): Promise<void> {
     case 'trace': {
       const { main: traceMain } = await import('./trace');
       return traceMain(subArgs);
+    }
+    case 'impact': {
+      const { main: impactMain } = await import('./impact');
+      return impactMain(subArgs);
+    }
+    case 'world': {
+      const { main: worldMain } = await import('./world');
+      return worldMain(subArgs);
     }
     case 'derive': {
       const { main: deriveMain } = await import('./derive');

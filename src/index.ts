@@ -54,6 +54,18 @@ export type {
   GovernanceEngineOptions,
 } from './engine/audit-logger';
 
+// ─── Verdict Formatter ────────────────────────────────────────────────────
+
+export { formatVerdict, formatVerdictOneLine } from './engine/verdict-formatter';
+
+export type { FormatVerdictOptions } from './engine/verdict-formatter';
+
+// ─── Impact Report ──────────────────────────────────────────────────────────
+
+export { generateImpactReport, generateImpactReportFromFile, renderImpactReport } from './engine/impact-report';
+
+export type { ImpactReport, PreventionCategory } from './engine/impact-report';
+
 // ─── World Loader ──────────────────────────────────────────────────────────
 
 export { loadWorld, loadWorldFromDirectory } from './loader/world-loader';
