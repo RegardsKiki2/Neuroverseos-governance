@@ -16,7 +16,13 @@ World files are not locked to NeuroVerse. They are **portable rule systems** tha
 npm install neuroverse-governance
 ```
 
-## Quick Example: AI Safety Governance
+## Run the CLI
+
+```bash
+npx neuroverse --help
+```
+
+## The Workflow
 
 Define rules that restrict unsafe agent behavior, then enforce them at runtime.
 
