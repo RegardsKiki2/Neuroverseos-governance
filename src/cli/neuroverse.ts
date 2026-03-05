@@ -24,6 +24,7 @@ Commands:
   init           Scaffold a new .nv-world.md template
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
+  trace          Runtime action audit log
   derive         AI-assisted synthesis of .nv-world.md from markdown
   bootstrap      Compile .nv-world.md → world JSON files
   configure-ai   Configure AI provider credentials
@@ -36,6 +37,7 @@ Usage:
   neuroverse init [--name "World Name"] [--output path]
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
+  neuroverse trace [--log <path>] [--summary] [--filter BLOCK] [--last 20]
   neuroverse derive --input <path> [--output <path>] [--dry-run]
   neuroverse bootstrap --input <.md> --output <dir> [--validate]
   neuroverse configure-ai --provider <name> --model <name> --api-key <key>
@@ -88,6 +90,10 @@ async function main(): Promise<void> {
     case 'guard': {
       const { main: guardMain } = await import('./guard');
       return guardMain(subArgs);
+    }
+    case 'trace': {
+      const { main: traceMain } = await import('./trace');
+      return traceMain(subArgs);
     }
     case 'derive': {
       const { main: deriveMain } = await import('./derive');
