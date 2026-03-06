@@ -1,6 +1,6 @@
 {
   "name": "@neuroverseos/governance",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Deterministic governance engine for AI agents — evaluate events against world definitions with full audit trace",
   "license": "Apache-2.0",
   "type": "module",
