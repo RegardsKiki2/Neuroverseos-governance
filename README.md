@@ -1,5 +1,10 @@
 # NeuroVerse Governance — Deterministic Governance Engine for AI Agents
 
+![npm version](https://img.shields.io/npm/v/@neuroverseos/governance)
+![npm downloads](https://img.shields.io/npm/dm/@neuroverseos/governance)
+![license](https://img.shields.io/npm/l/@neuroverseos/governance)
+![GitHub stars](https://img.shields.io/github/stars/NeuroverseOS/neuroverseos-governance)
+
 **Define governance rules once and enforce them anywhere AI or automated systems operate.**
 
 NeuroVerse Governance is a deterministic AI governance engine and policy engine for AI agents. It lets developers enforce AI guardrails, compliance rules, and safety policies on AI systems — with full audit trails and portable, world-based policy definitions. Use it as an agent governance layer for LangChain, OpenAI, or any AI framework.
