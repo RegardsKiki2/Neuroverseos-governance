@@ -19,6 +19,7 @@
 
 import { evaluateGuard } from '../engine/guard-engine';
 import { loadWorld } from '../loader/world-loader';
+import { resolveWorldPath } from '../loader/world-resolver';
 import { GUARD_EXIT_CODES } from '../contracts/guard-contract';
 import type { GuardEvent, GuardEngineOptions, GuardExitCode } from '../contracts/guard-contract';
 
@@ -51,10 +52,6 @@ function parseArgs(argv: string[]): CliArgs {
     }
   }
 
-  if (!worldPath) {
-    throw new Error('--world <path> is required');
-  }
-
   return { worldPath, trace, level };
 }
 
@@ -73,6 +70,14 @@ async function readStdin(): Promise<string> {
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   try {
     const args = parseArgs(argv);
+
+    // Resolve world path (--world flag, env var, active world, or auto-detect)
+    const worldPath = resolveWorldPath(args.worldPath);
+    if (!worldPath) {
+      throw new Error(
+        'No world specified. Use --world <path>, set NEUROVERSE_WORLD, or run `neuroverse world use <name>`',
+      );
+    }
 
     // Read event from stdin
     const input = await readStdin();
@@ -102,7 +107,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     }
 
     // Load world
-    const world = await loadWorld(args.worldPath);
+    const world = await loadWorld(worldPath);
 
     // Evaluate
     const options: GuardEngineOptions = { trace: args.trace, level: args.level };

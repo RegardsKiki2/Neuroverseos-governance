@@ -18,6 +18,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { resolveWorldPath } from '../loader/world-resolver';
 import type { PlanDefinition } from '../contracts/plan-contract';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -102,11 +103,12 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
-  // Resolve world
-  const worldPath = parseArg(args, '--world') ?? autoDetectWorld();
+  // Resolve world (--world flag, env var, active world, or auto-detect)
+  const worldPath = resolveWorldPath(parseArg(args, '--world'));
   if (!worldPath) {
     process.stderr.write(
-      'Error: No world found. Use --world <path> or create .neuroverse/worlds/\n',
+      'Error: No world found.\n' +
+      'Use --world <path>, set NEUROVERSE_WORLD, or run `neuroverse world use <name>`\n',
     );
     process.exit(1);
     return;

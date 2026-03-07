@@ -27,6 +27,7 @@ Commands:
   plan           Plan enforcement (compile, check, status, advance, derive)
   run            Governed runtime (pipe mode or interactive chat)
   mcp            MCP governance server (for Claude, Cursor, etc.)
+  worlds         List available worlds (alias for world list)
   trace          Runtime action audit log
   impact         Counterfactual governance impact report
   world          World management (status, diff, snapshot, rollback)
@@ -120,6 +121,10 @@ async function main(): Promise<void> {
     case 'mcp': {
       const { startMcpServer } = await import('../runtime/mcp-server');
       return startMcpServer(subArgs);
+    }
+    case 'worlds': {
+      const { main: worldMain } = await import('./world');
+      return worldMain(['list', ...subArgs]);
     }
     case 'trace': {
       const { main: traceMain } = await import('./trace');

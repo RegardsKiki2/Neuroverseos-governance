@@ -28,6 +28,7 @@ import type { GuardEvent, GuardEngineOptions } from '../contracts/guard-contract
 import type { PlanDefinition } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { loadWorld } from '../loader/world-loader';
+import { resolveWorldPath } from '../loader/world-resolver';
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
@@ -733,14 +734,17 @@ export async function startMcpServer(args: string[]): Promise<void> {
     return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
   }
 
-  const worldPath = parseArg('--world');
+  const worldPath = resolveWorldPath(parseArg('--world'));
   const planPath = parseArg('--plan');
   const level = parseArg('--level') as 'basic' | 'standard' | 'strict' | undefined;
   const trace = args.includes('--trace');
   const workingDir = parseArg('--cwd');
 
   if (!worldPath) {
-    process.stderr.write('Error: --world <path> is required for MCP server.\n');
+    process.stderr.write(
+      'Error: No world found.\n' +
+      'Use --world <path>, set NEUROVERSE_WORLD, or run `neuroverse world use <name>`\n',
+    );
     process.exit(1);
     return;
   }

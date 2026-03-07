@@ -17,16 +17,22 @@
 
 import { loadWorld } from '../loader/world-loader';
 import { validateWorld } from '../engine/validate-engine';
+import { listWorlds, setActiveWorld, getActiveWorldName, resolveWorldPath } from '../loader/world-resolver';
 import type { WorldDefinition } from '../types';
 
 const USAGE = `
 neuroverse world — World management
 
 Usage:
-  neuroverse world status <path>           Show world identity and health
+  neuroverse world list                    List available worlds
+  neuroverse world use <name>              Set the active world
+  neuroverse world status [path|name]      Show world identity and health
   neuroverse world diff <path1> <path2>    Compare two world versions
   neuroverse world snapshot <path>         Save a timestamped snapshot
   neuroverse world rollback <path>         Restore the previous snapshot
+
+Environment:
+  NEUROVERSE_WORLD=<name>    Override active world (for CI/agents)
 
 Options:
   --json    Output as JSON
@@ -334,6 +340,51 @@ async function worldRollback(worldPath: string): Promise<void> {
   process.stdout.write(`Backup saved: ${backupDir}\n`);
 }
 
+// ─── List ────────────────────────────────────────────────────────────────────
+
+function worldList(json: boolean): void {
+  const worlds = listWorlds();
+
+  if (json) {
+    process.stdout.write(JSON.stringify({ worlds, activeWorld: getActiveWorldName() }, null, 2) + '\n');
+    return;
+  }
+
+  if (worlds.length === 0) {
+    process.stdout.write('No worlds found.\n');
+    process.stdout.write('Run `neuroverse build <input.md>` to create one.\n');
+    return;
+  }
+
+  const lines: string[] = [];
+  lines.push('AVAILABLE WORLDS');
+  lines.push('─'.repeat(40));
+
+  for (const w of worlds) {
+    const marker = w.active ? '→' : ' ';
+    const activeLabel = w.active ? ' (active)' : '';
+    lines.push(`  ${marker} ${w.name}${activeLabel}`);
+  }
+
+  const envWorld = process.env.NEUROVERSE_WORLD;
+  if (envWorld) {
+    lines.push('');
+    lines.push(`  env: NEUROVERSE_WORLD=${envWorld}`);
+  }
+
+  lines.push('');
+  lines.push('Switch: neuroverse world use <name>');
+
+  process.stdout.write(lines.join('\n') + '\n');
+}
+
+// ─── Use ─────────────────────────────────────────────────────────────────────
+
+function worldUse(name: string): void {
+  setActiveWorld(name);
+  process.stdout.write(`Active world: ${name}\n`);
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
@@ -345,12 +396,27 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
   }
 
   switch (subcommand) {
-    case 'status': {
+    case 'list':
+    case 'ls': {
+      return worldList(!!flags.json);
+    }
+    case 'use': {
       if (!paths[0]) {
-        process.stderr.write('Usage: neuroverse world status <path>\n');
+        process.stderr.write('Usage: neuroverse world use <name>\n');
         process.exit(1);
       }
-      return worldStatus(paths[0], !!flags.json);
+      return worldUse(paths[0]);
+    }
+    case 'status': {
+      // Resolve name or path; fall back to active world
+      const ref = paths[0];
+      const resolved = ref ? resolveWorldPath(ref) : resolveWorldPath();
+      if (!resolved) {
+        process.stderr.write('Usage: neuroverse world status <path|name>\n');
+        process.stderr.write('Or set an active world: neuroverse world use <name>\n');
+        process.exit(1);
+      }
+      return worldStatus(resolved, !!flags.json);
     }
     case 'diff': {
       if (!paths[0] || !paths[1]) {

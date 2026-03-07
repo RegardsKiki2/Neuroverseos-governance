@@ -101,6 +101,17 @@ export type { ImpactReport, PreventionCategory } from './engine/impact-report';
 
 export { loadWorld, loadWorldFromDirectory } from './loader/world-loader';
 
+// ─── World Resolver ────────────────────────────────────────────────────────
+
+export {
+  resolveWorldPath,
+  listWorlds,
+  getActiveWorldName,
+  setActiveWorld,
+} from './loader/world-resolver';
+
+export type { WorldInfo } from './loader/world-resolver';
+
 // ─── Condition Engine ───────────────────────────────────────────────────────
 
 export { evaluateCondition } from './engine/condition-engine';
