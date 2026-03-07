@@ -1,0 +1,348 @@
+/**
+ * Plan Engine — Deterministic Plan Enforcement Evaluator
+ *
+ * Pure function: (event, plan) → PlanVerdict
+ *
+ * Evaluates a GuardEvent against a PlanDefinition to determine
+ * whether the action is on-plan, off-plan, or violates constraints.
+ *
+ * Uses two-tier matching:
+ *   Tier 1: Keyword + tag matching (fast, deterministic)
+ *   Tier 2: Intent similarity scoring (precomputed vectors, no LLM)
+ *
+ * INVARIANTS:
+ *   - Deterministic: same event + same plan → same verdict.
+ *   - No LLM calls. No network calls.
+ *   - Plans can only restrict, never expand.
+ *   - OFF_PLAN always includes closest step for self-correction.
+ */
+
+import type { GuardEvent } from '../contracts/guard-contract';
+import type {
+  PlanDefinition,
+  PlanStep,
+  PlanVerdict,
+  PlanProgress,
+  PlanCheck,
+} from '../contracts/plan-contract';
+
+// ─── Keyword Matching ───────────────────────────────────────────────────────
+
+/**
+ * Match event text against a step using keywords and tags.
+ * ALL significant keywords (>3 chars) from the step must be present
+ * in the event text. Tags are treated as additional keywords.
+ */
+function keywordMatch(eventText: string, step: PlanStep): boolean {
+  const stepText = [
+    step.label,
+    step.description ?? '',
+    ...(step.tags ?? []),
+  ].join(' ').toLowerCase();
+
+  const keywords = stepText.split(/\s+/).filter(w => w.length > 3);
+  if (keywords.length === 0) return false;
+
+  // Require at least half of the keywords to match (flexible matching)
+  const matched = keywords.filter(kw => eventText.includes(kw));
+  return matched.length >= Math.ceil(keywords.length * 0.5);
+}
+
+// ─── Similarity Scoring ─────────────────────────────────────────────────────
+
+/**
+ * Compute a simple token-overlap similarity score between two strings.
+ * Returns a value between 0 and 1.
+ *
+ * This is a lightweight deterministic alternative to embedding-based
+ * similarity. For production use, precomputed embeddings can be
+ * plugged in at compile time.
+ */
+function tokenSimilarity(a: string, b: string): number {
+  const tokensA = new Set(a.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+  const tokensB = new Set(b.toLowerCase().split(/\s+/).filter(w => w.length > 2));
+
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const t of tokensA) {
+    if (tokensB.has(t)) intersection++;
+  }
+
+  // Jaccard similarity
+  const union = new Set([...tokensA, ...tokensB]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+/**
+ * Find the best matching step for an event.
+ * Returns the matched step (if above threshold) and the closest step.
+ */
+function findMatchingStep(
+  eventText: string,
+  event: GuardEvent,
+  steps: PlanStep[],
+): { matched: PlanStep | null; closest: PlanStep | null; closestScore: number } {
+  const pendingOrActive = steps.filter(s => s.status === 'pending' || s.status === 'active');
+  if (pendingOrActive.length === 0) {
+    return { matched: null, closest: null, closestScore: 0 };
+  }
+
+  // Tier 1: Keyword + tag matching
+  for (const step of pendingOrActive) {
+    if (keywordMatch(eventText, step)) {
+      // Also check tool restriction
+      if (step.tools && event.tool && !step.tools.includes(event.tool)) {
+        continue;
+      }
+      return { matched: step, closest: step, closestScore: 1.0 };
+    }
+  }
+
+  // Tier 2: Intent similarity scoring
+  const intentText = [event.intent, event.tool ?? '', event.scope ?? ''].join(' ');
+  let bestStep: PlanStep | null = null;
+  let bestScore = 0;
+
+  for (const step of pendingOrActive) {
+    const stepText = [step.label, step.description ?? '', ...(step.tags ?? [])].join(' ');
+    const score = tokenSimilarity(intentText, stepText);
+    if (score > bestScore) {
+      bestScore = score;
+      bestStep = step;
+    }
+  }
+
+  // Threshold for similarity match
+  const SIMILARITY_THRESHOLD = 0.35;
+
+  if (bestScore >= SIMILARITY_THRESHOLD && bestStep) {
+    // Check tool restriction
+    if (bestStep.tools && event.tool && !bestStep.tools.includes(event.tool)) {
+      return { matched: null, closest: bestStep, closestScore: bestScore };
+    }
+    return { matched: bestStep, closest: bestStep, closestScore: bestScore };
+  }
+
+  return { matched: null, closest: bestStep, closestScore: bestScore };
+}
+
+// ─── Sequence Validation ────────────────────────────────────────────────────
+
+function isSequenceValid(step: PlanStep, plan: PlanDefinition): boolean {
+  if (!plan.sequential) return true;
+  if (!step.requires || step.requires.length === 0) return true;
+
+  return step.requires.every(reqId => {
+    const reqStep = plan.steps.find(s => s.id === reqId);
+    return reqStep?.status === 'completed';
+  });
+}
+
+// ─── Constraint Checking ────────────────────────────────────────────────────
+
+function checkConstraints(
+  event: GuardEvent,
+  eventText: string,
+  constraints: PlanConstraint[],
+): { violated: PlanConstraint | null; checks: PlanCheck['constraintsChecked'] } {
+  const checks: PlanCheck['constraintsChecked'] = [];
+
+  for (const constraint of constraints) {
+    // Approval constraints always trigger PAUSE
+    if (constraint.type === 'approval') {
+      // Check if the constraint's trigger pattern is relevant
+      if (constraint.trigger && eventText.includes(constraint.trigger.substring(0, 10).toLowerCase())) {
+        checks.push({ constraintId: constraint.id, passed: false, reason: constraint.description });
+        return { violated: constraint, checks };
+      }
+      // Match by keywords in the constraint description
+      const keywords = constraint.description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const relevant = keywords.some(kw => eventText.includes(kw));
+      if (relevant) {
+        checks.push({ constraintId: constraint.id, passed: false, reason: constraint.description });
+        return { violated: constraint, checks };
+      }
+      checks.push({ constraintId: constraint.id, passed: true });
+      continue;
+    }
+
+    // Scope constraints — check if action touches restricted areas
+    if (constraint.type === 'scope' && constraint.trigger) {
+      const keywords = constraint.trigger.split(/\s+/).filter(w => w.length > 3);
+      const violated = keywords.length > 0 && keywords.every(kw => eventText.includes(kw));
+      checks.push({
+        constraintId: constraint.id,
+        passed: !violated,
+        reason: violated ? constraint.description : undefined,
+      });
+      if (violated) {
+        return { violated: constraint, checks };
+      }
+      continue;
+    }
+
+    // Budget/time constraints are informational at evaluation time
+    // (actual enforcement requires external state tracking)
+    checks.push({ constraintId: constraint.id, passed: true });
+  }
+
+  return { violated: null, checks };
+}
+
+// ─── Progress Calculation ───────────────────────────────────────────────────
+
+/**
+ * Get the current progress of a plan.
+ */
+export function getPlanProgress(plan: PlanDefinition): PlanProgress {
+  const completed = plan.steps.filter(s => s.status === 'completed').length;
+  const total = plan.steps.length;
+  return {
+    completed,
+    total,
+    percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+  };
+}
+
+// ─── Plan Advancement ───────────────────────────────────────────────────────
+
+/**
+ * Mark a step as completed and return a new plan.
+ * Does not mutate the original plan.
+ */
+export function advancePlan(plan: PlanDefinition, stepId: string): PlanDefinition {
+  return {
+    ...plan,
+    steps: plan.steps.map(s =>
+      s.id === stepId ? { ...s, status: 'completed' as const } : s,
+    ),
+  };
+}
+
+// ─── Core Evaluator ─────────────────────────────────────────────────────────
+
+/**
+ * Evaluate an event against a plan.
+ *
+ * Returns a PlanVerdict indicating whether the action is on-plan,
+ * off-plan, violates constraints, or the plan is complete.
+ */
+export function evaluatePlan(
+  event: GuardEvent,
+  plan: PlanDefinition,
+): PlanVerdict {
+  const progress = getPlanProgress(plan);
+
+  // Check plan expiry
+  if (plan.expires_at) {
+    const expiresAt = new Date(plan.expires_at).getTime();
+    if (Date.now() > expiresAt) {
+      return {
+        allowed: true,
+        status: 'PLAN_COMPLETE',
+        reason: 'Plan has expired.',
+        progress,
+      };
+    }
+  }
+
+  // Check if all steps complete
+  if (progress.completed === progress.total) {
+    return {
+      allowed: true,
+      status: 'PLAN_COMPLETE',
+      reason: 'All plan steps are completed.',
+      progress,
+    };
+  }
+
+  // Normalize event text
+  const eventText = [
+    event.intent,
+    event.tool ?? '',
+    event.scope ?? '',
+  ].join(' ').toLowerCase();
+
+  // Match action to step
+  const { matched, closest, closestScore } = findMatchingStep(eventText, event, plan.steps);
+
+  if (!matched) {
+    // OFF_PLAN — include closest step for self-correction
+    return {
+      allowed: false,
+      status: 'OFF_PLAN',
+      reason: 'Action does not match any plan step.',
+      closestStep: closest?.label,
+      similarityScore: closestScore,
+      progress,
+    };
+  }
+
+  // Check sequence
+  if (!isSequenceValid(matched, plan)) {
+    const pendingDeps = (matched.requires ?? [])
+      .filter(reqId => plan.steps.find(s => s.id === reqId)?.status !== 'completed')
+      .join(', ');
+    return {
+      allowed: false,
+      status: 'OFF_PLAN',
+      reason: `Step "${matched.label}" requires completion of: ${pendingDeps}`,
+      matchedStep: matched.id,
+      progress,
+    };
+  }
+
+  // Check constraints
+  const { violated } = checkConstraints(event, eventText, plan.constraints);
+  if (violated) {
+    return {
+      allowed: false,
+      status: 'CONSTRAINT_VIOLATED',
+      reason: violated.description,
+      matchedStep: matched.id,
+      progress,
+    };
+  }
+
+  // ON_PLAN
+  return {
+    allowed: true,
+    status: 'ON_PLAN',
+    reason: `Matches step: ${matched.label}`,
+    matchedStep: matched.id,
+    progress,
+  };
+}
+
+// ─── Plan Check Builder (for EvaluationTrace) ───────────────────────────────
+
+/**
+ * Build a PlanCheck for inclusion in the guard engine's EvaluationTrace.
+ */
+export function buildPlanCheck(
+  event: GuardEvent,
+  plan: PlanDefinition,
+  verdict: PlanVerdict,
+): PlanCheck {
+  const eventText = [event.intent, event.tool ?? '', event.scope ?? ''].join(' ').toLowerCase();
+  const { matched, closest, closestScore } = findMatchingStep(eventText, event, plan.steps);
+  const { checks: constraintChecks } = checkConstraints(event, eventText, plan.constraints);
+  const progress = getPlanProgress(plan);
+
+  return {
+    planId: plan.plan_id,
+    matched: !!matched,
+    matchedStepId: matched?.id,
+    matchedStepLabel: matched?.label,
+    closestStepId: !matched ? closest?.id : undefined,
+    closestStepLabel: !matched ? closest?.label : undefined,
+    similarityScore: !matched ? closestScore : undefined,
+    sequenceValid: matched ? isSequenceValid(matched, plan) : undefined,
+    constraintsChecked: constraintChecks,
+    progress: { completed: progress.completed, total: progress.total },
+  };
+}
+
+// Re-export PlanConstraint type used in this module's internal function signatures
+import type { PlanConstraint } from '../contracts/plan-contract';

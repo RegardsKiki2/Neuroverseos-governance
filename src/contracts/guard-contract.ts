@@ -150,6 +150,9 @@ export interface EvaluationTrace {
   /** Safety checks (injection, scope escape) */
   safetyChecks: SafetyCheck[];
 
+  /** Plan enforcement check (Phase 1.5) — present when a plan is active */
+  planCheck?: import('./plan-contract').PlanCheck;
+
   /** Every role rule checked */
   roleChecks: RoleCheck[];
 
@@ -249,6 +252,7 @@ export interface PrecedenceResolution {
   decidingLayer:
     | 'session-allowlist'
     | 'safety'
+    | 'plan-enforcement'
     | 'role'
     | 'guard'
     | 'kernel-rule'
@@ -288,6 +292,13 @@ export interface GuardEngineOptions {
    * The caller owns persistence (allow-once, allow-always, etc.).
    */
   sessionAllowlist?: Set<string>;
+
+  /**
+   * Active plan overlay — temporary task-scoped governance.
+   * When set, plan enforcement runs at Phase 1.5 (after safety, before roles).
+   * Plans can only restrict, never expand.
+   */
+  plan?: import('./plan-contract').PlanDefinition;
 }
 
 // ─── Exit Codes ──────────────────────────────────────────────────────────────

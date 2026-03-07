@@ -24,6 +24,7 @@ Commands:
   init           Scaffold a new .nv-world.md template
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
+  plan           Plan enforcement (compile, check, status, advance, derive)
   trace          Runtime action audit log
   impact         Counterfactual governance impact report
   world          World management (status, diff, snapshot, rollback)
@@ -58,6 +59,11 @@ Examples:
   neuroverse init --name "Customer Service Governance"
   neuroverse validate --world ./world/ --format summary
   echo '{"intent":"delete user data"}' | neuroverse guard --world ./world/ --trace
+  neuroverse plan compile plan.md --output plan.json
+  echo '{"intent":"write blog"}' | neuroverse plan check --plan plan.json
+  neuroverse plan status --plan plan.json
+  neuroverse plan advance write_blog_post --plan plan.json
+  neuroverse plan derive plan.md --output ./derived-world/
 `.trim();
 
 async function main(): Promise<void> {
@@ -97,6 +103,10 @@ async function main(): Promise<void> {
     case 'guard': {
       const { main: guardMain } = await import('./guard');
       return guardMain(subArgs);
+    }
+    case 'plan': {
+      const { main: planMain } = await import('./plan');
+      return planMain(subArgs);
     }
     case 'trace': {
       const { main: traceMain } = await import('./trace');

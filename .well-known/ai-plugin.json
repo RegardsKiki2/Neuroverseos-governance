@@ -1,0 +1,26 @@
+{
+  "schema_version": "v1",
+  "name": "neuroverse-governance",
+  "description": "Enforce governance rules on AI agent actions. Turn plans into enforceable constraints. Deterministic evaluation — no LLM in the loop.",
+  "capabilities": {
+    "plan_enforcement": {
+      "description": "Compile a plan into enforceable rules. Block actions outside the plan. Track progress.",
+      "input": "Plan markdown or JSON",
+      "output": "ON_PLAN / OFF_PLAN / CONSTRAINT_VIOLATED / PLAN_COMPLETE verdict with evidence"
+    },
+    "world_governance": {
+      "description": "Full governance engine with invariants, guards, roles, kernel rules, and audit trails.",
+      "input": "GuardEvent JSON",
+      "output": "ALLOW / BLOCK / PAUSE verdict with trace"
+    },
+    "plan_derive": {
+      "description": "Generate a full governance world from a plan markdown file.",
+      "input": "Plan markdown",
+      "output": "World definition files (world.json, invariants.json, guards.json)"
+    }
+  },
+  "install": "npm install @neuroverseos/governance",
+  "adapters": ["openclaw", "langchain", "openai", "express"],
+  "cli": "neuroverse",
+  "repository": "https://github.com/NeuroverseOS/Neuroverseos-governance"
+}

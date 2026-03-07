@@ -35,6 +35,26 @@ export type {
 
 export { GUARD_EXIT_CODES } from './contracts/guard-contract';
 
+// ─── Plan Engine ────────────────────────────────────────────────────────────
+
+export { parsePlanMarkdown } from './engine/plan-parser';
+export type { PlanParseResult } from './engine/plan-parser';
+
+export { evaluatePlan, advancePlan, getPlanProgress, buildPlanCheck } from './engine/plan-engine';
+
+export type {
+  PlanDefinition,
+  PlanStep,
+  PlanConstraint,
+  PlanVerdict,
+  PlanStatus,
+  PlanProgress,
+  PlanCheck,
+  PlanExitCode,
+} from './contracts/plan-contract';
+
+export { PLAN_EXIT_CODES } from './contracts/plan-contract';
+
 // ─── Audit Logger ──────────────────────────────────────────────────────────
 
 export {

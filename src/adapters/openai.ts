@@ -16,8 +16,10 @@
  */
 
 import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/guard-contract';
+import type { PlanDefinition, PlanProgress } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { evaluateGuard } from '../engine/guard-engine';
+import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engine';
 import { loadWorld } from '../loader/world-loader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -56,6 +58,15 @@ export interface GovernedExecutorOptions {
 
   /** Message returned to the model when a tool call is blocked. */
   blockMessage?: (verdict: GuardVerdict) => string;
+
+  /** Active plan overlay for task-scoped governance. */
+  plan?: PlanDefinition;
+
+  /** Called when plan progress changes. */
+  onPlanProgress?: (progress: PlanProgress) => void;
+
+  /** Called when all plan steps are completed. */
+  onPlanComplete?: () => void;
 }
 
 export class GovernanceBlockedError extends Error {
@@ -102,13 +113,16 @@ export class GovernedToolExecutor {
   private engineOptions: GuardEngineOptions;
   private mapFn: (name: string, args: Record<string, unknown>) => GuardEvent;
   private blockMsg: (verdict: GuardVerdict) => string;
+  private activePlan?: PlanDefinition;
 
   constructor(world: WorldDefinition, options: GovernedExecutorOptions = {}) {
     this.world = world;
     this.options = options;
+    this.activePlan = options.plan;
     this.engineOptions = {
       trace: options.trace ?? false,
       level: options.level,
+      plan: this.activePlan,
     };
     this.mapFn = options.mapFunctionCall ?? defaultMapFunctionCall;
     this.blockMsg = options.blockMessage ?? defaultBlockMessage;
@@ -127,9 +141,25 @@ export class GovernedToolExecutor {
     }
 
     const event = this.mapFn(toolCall.function.name, args);
+    this.engineOptions.plan = this.activePlan;
     const verdict = evaluateGuard(event, this.world, this.engineOptions);
 
     this.options.onEvaluate?.(verdict, event);
+
+    // Track plan progress on ALLOW
+    if (verdict.status === 'ALLOW' && this.activePlan) {
+      const planVerdict = evaluatePlan(event, this.activePlan);
+      if (planVerdict.matchedStep) {
+        this.activePlan = advancePlan(this.activePlan, planVerdict.matchedStep);
+        this.engineOptions.plan = this.activePlan;
+        const progress = getPlanProgress(this.activePlan);
+        this.options.onPlanProgress?.(progress);
+        if (progress.completed === progress.total) {
+          this.options.onPlanComplete?.();
+        }
+      }
+    }
+
     return verdict;
   }
 

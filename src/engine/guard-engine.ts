@@ -7,12 +7,13 @@
  * a GuardVerdict with evidence and optional evaluation trace.
  *
  * Evaluation chain (first-match-wins on BLOCK/PAUSE):
- *   1. Safety checks (prompt injection, scope escape)    → PAUSE
- *   2. Role-specific rules (cannotDo, requiresApproval)  → BLOCK/PAUSE
- *   3. Declarative guards (guards.json)                  → BLOCK/PAUSE/WARN
- *   4. Kernel rules (kernel.json forbidden patterns)     → BLOCK
- *   5. Level constraints (basic/standard/strict)         → PAUSE
- *   6. Default                                           → ALLOW
+ *   1.   Safety checks (prompt injection, scope escape)    → PAUSE
+ *   1.5  Plan enforcement (task scope)                     → BLOCK/PAUSE
+ *   2.   Role-specific rules (cannotDo, requiresApproval)  → BLOCK/PAUSE
+ *   3.   Declarative guards (guards.json)                  → BLOCK/PAUSE/WARN
+ *   4.   Kernel rules (kernel.json forbidden patterns)     → BLOCK
+ *   5.   Level constraints (basic/standard/strict)         → PAUSE
+ *   6.   Default                                           → ALLOW
  *
  * Invariant checks run unconditionally and are recorded in evidence
  * but do not produce verdicts — they measure world health.
@@ -44,6 +45,8 @@ import type {
   LevelCheck,
   PrecedenceResolution,
 } from '../contracts/guard-contract';
+import type { PlanCheck } from '../contracts/plan-contract';
+import { evaluatePlan, buildPlanCheck } from './plan-engine';
 
 // ─── Safety Patterns ─────────────────────────────────────────────────────────
 
@@ -182,6 +185,7 @@ export function evaluateGuard(
   // ─── Build trace collectors ──────────────────────────────────────────
   const invariantChecks: InvariantCheck[] = [];
   const safetyChecks: SafetyCheck[] = [];
+  let planCheckResult: PlanCheck | undefined;
   const roleChecks: RoleCheck[] = [];
   const guardChecks: GuardCheck[] = [];
   const kernelRuleChecks: KernelRuleCheck[] = [];
@@ -211,7 +215,7 @@ export function evaluateGuard(
         undefined,
         world, level, invariantChecks, guardsMatched, rulesMatched,
         includeTrace ? buildTrace(
-          invariantChecks, safetyChecks, roleChecks, guardChecks,
+          invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
           kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
         ) : undefined,
       );
@@ -230,10 +234,41 @@ export function evaluateGuard(
       undefined,
       world, level, invariantChecks, guardsMatched, rulesMatched,
       includeTrace ? buildTrace(
-        invariantChecks, safetyChecks, roleChecks, guardChecks,
+        invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
         kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
       ) : undefined,
     );
+  }
+
+  // ─── Phase 1.5: Plan enforcement ────────────────────────────────────
+  if (options.plan) {
+    const planVerdict = evaluatePlan(event, options.plan);
+    planCheckResult = buildPlanCheck(event, options.plan, planVerdict);
+
+    if (!planVerdict.allowed && planVerdict.status !== 'PLAN_COMPLETE') {
+      decidingLayer = 'plan-enforcement';
+      decidingId = `plan-${options.plan.plan_id}`;
+
+      const planStatus = planVerdict.status === 'CONSTRAINT_VIOLATED' ? 'PAUSE' : 'BLOCK';
+      let reason = planVerdict.reason ?? 'Action blocked by plan.';
+
+      // Include closest step info for OFF_PLAN
+      if (planVerdict.status === 'OFF_PLAN' && planVerdict.closestStep) {
+        reason += ` Closest step: "${planVerdict.closestStep}" (similarity: ${(planVerdict.similarityScore ?? 0).toFixed(2)})`;
+      }
+
+      return buildVerdict(
+        planStatus as GuardStatus,
+        reason,
+        `plan-${options.plan.plan_id}`,
+        undefined,
+        world, level, invariantChecks, guardsMatched, rulesMatched,
+        includeTrace ? buildTrace(
+          invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
+          kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
+        ) : undefined,
+      );
+    }
   }
 
   // ─── Phase 2: Role rules ─────────────────────────────────────────────
@@ -248,7 +283,7 @@ export function evaluateGuard(
       undefined,
       world, level, invariantChecks, guardsMatched, rulesMatched,
       includeTrace ? buildTrace(
-        invariantChecks, safetyChecks, roleChecks, guardChecks,
+        invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
         kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
       ) : undefined,
     );
@@ -268,7 +303,7 @@ export function evaluateGuard(
         undefined,
         world, level, invariantChecks, guardsMatched, rulesMatched,
         includeTrace ? buildTrace(
-          invariantChecks, safetyChecks, roleChecks, guardChecks,
+          invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
           kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
         ) : undefined,
       );
@@ -288,7 +323,7 @@ export function evaluateGuard(
       undefined,
       world, level, invariantChecks, guardsMatched, rulesMatched,
       includeTrace ? buildTrace(
-        invariantChecks, safetyChecks, roleChecks, guardChecks,
+        invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
         kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
       ) : undefined,
     );
@@ -306,7 +341,7 @@ export function evaluateGuard(
       undefined,
       world, level, invariantChecks, guardsMatched, rulesMatched,
       includeTrace ? buildTrace(
-        invariantChecks, safetyChecks, roleChecks, guardChecks,
+        invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
         kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
       ) : undefined,
     );
@@ -323,7 +358,7 @@ export function evaluateGuard(
     warning,
     world, level, invariantChecks, guardsMatched, rulesMatched,
     includeTrace ? buildTrace(
-      invariantChecks, safetyChecks, roleChecks, guardChecks,
+      invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
       kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
     ) : undefined,
   );
@@ -821,6 +856,7 @@ export function eventToAllowlistKey(event: GuardEvent): string {
 function buildTrace(
   invariantChecks: InvariantCheck[],
   safetyChecks: SafetyCheck[],
+  planCheck: PlanCheck | undefined,
   roleChecks: RoleCheck[],
   guardChecks: GuardCheck[],
   kernelRuleChecks: KernelRuleCheck[],
@@ -829,7 +865,7 @@ function buildTrace(
   decidingId: string | undefined,
   startTime: number,
 ): EvaluationTrace {
-  return {
+  const trace: EvaluationTrace = {
     invariantChecks,
     safetyChecks,
     roleChecks,
@@ -847,6 +883,7 @@ function buildTrace(
         'safety-scope-escape',
         'safety-execution-claim',
         'safety-execution-intent',
+        'plan-enforcement',
         'role-rules',
         'declarative-guards',
         'kernel-rules',
@@ -856,6 +893,12 @@ function buildTrace(
     },
     durationMs: performance.now() - startTime,
   };
+
+  if (planCheck) {
+    trace.planCheck = planCheck;
+  }
+
+  return trace;
 }
 
 /**
