@@ -145,6 +145,163 @@ describe('Validate Engine', () => {
   });
 });
 
+// ─── Test Suite: Guard Shadow Detection ──────────────────────────────────────
+
+describe('Guard Shadow Detection', () => {
+  function makeWorld(guards: WorldDefinition['guards']): WorldDefinition {
+    return {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards,
+    };
+  }
+
+  it('detects full shadow: same enforcement, overlapping patterns', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Block DB', description: 'No DB access',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['db_access'],
+        },
+        {
+          id: 'g2', label: 'Block DB Too', description: 'Also no DB',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['db_access'],
+        },
+      ],
+      intent_vocabulary: { db_access: { label: 'DB', pattern: 'database|db' } },
+    });
+    const report = validateWorld(world);
+    const shadows = report.findings.filter(f => f.id.startsWith('guard-shadow'));
+    expect(shadows).toHaveLength(1);
+    expect(shadows[0].message).toContain('shadowed');
+    expect(shadows[0].message).toContain('Block DB Too');
+    expect(shadows[0].severity).toBe('warning');
+  });
+
+  it('detects conflict: different enforcement, overlapping patterns', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Block Deploys', description: 'No deploys',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['deploy'],
+        },
+        {
+          id: 'g2', label: 'Warn Deploys', description: 'Warn on deploy',
+          category: 'operational', enforcement: 'warn', immutable: false,
+          default_enabled: true,
+          intent_patterns: ['deploy'],
+        },
+      ],
+      intent_vocabulary: { deploy: { label: 'Deploy', pattern: 'deploy' } },
+    });
+    const report = validateWorld(world);
+    const conflicts = report.findings.filter(f => f.id.startsWith('guard-conflict'));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].message).toContain('BLOCK');
+    expect(conflicts[0].message).toContain('WARN');
+  });
+
+  it('no shadow when tool scopes are disjoint', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Block Shell', description: 'No shell',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['dangerous'],
+          appliesTo: ['shell'],
+        },
+        {
+          id: 'g2', label: 'Block HTTP', description: 'No HTTP',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['dangerous'],
+          appliesTo: ['http'],
+        },
+      ],
+      intent_vocabulary: { dangerous: { label: 'Danger', pattern: 'danger' } },
+    });
+    const report = validateWorld(world);
+    const shadows = report.findings.filter(f => f.id.includes('guard-shadow') || f.id.includes('guard-conflict'));
+    expect(shadows).toHaveLength(0);
+  });
+
+  it('no shadow when role scopes are disjoint', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Block Admin', description: 'Admin only',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['sensitive'],
+          required_roles: ['admin'],
+        },
+        {
+          id: 'g2', label: 'Block Viewer', description: 'Viewer only',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['sensitive'],
+          required_roles: ['viewer'],
+        },
+      ],
+      intent_vocabulary: { sensitive: { label: 'Sensitive', pattern: 'sensitive' } },
+    });
+    const report = validateWorld(world);
+    const shadows = report.findings.filter(f => f.id.includes('guard-shadow') || f.id.includes('guard-conflict'));
+    expect(shadows).toHaveLength(0);
+  });
+
+  it('no shadow for disabled guards', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Active', description: 'Active guard',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'],
+        },
+        {
+          id: 'g2', label: 'Disabled', description: 'Disabled guard',
+          category: 'operational', enforcement: 'block', immutable: false,
+          default_enabled: false,
+          intent_patterns: ['action'],
+        },
+      ],
+      intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+    });
+    const report = validateWorld(world);
+    const shadows = report.findings.filter(f => f.id.includes('guard-shadow') || f.id.includes('guard-conflict'));
+    expect(shadows).toHaveLength(0);
+  });
+
+  it('no shadow when patterns do not overlap', () => {
+    const world = makeWorld({
+      guards: [
+        {
+          id: 'g1', label: 'Block DB', description: 'No DB',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['db_access'],
+        },
+        {
+          id: 'g2', label: 'Block Deploy', description: 'No Deploy',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['deploy'],
+        },
+      ],
+      intent_vocabulary: {
+        db_access: { label: 'DB', pattern: 'database' },
+        deploy: { label: 'Deploy', pattern: 'deploy' },
+      },
+    });
+    const report = validateWorld(world);
+    const shadows = report.findings.filter(f => f.id.includes('guard-shadow') || f.id.includes('guard-conflict'));
+    expect(shadows).toHaveLength(0);
+  });
+});
+
 // ─── Test Suite: Guard Engine ────────────────────────────────────────────────
 
 describe('Guard Engine', () => {

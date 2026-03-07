@@ -8,8 +8,9 @@
  *   2. Referential integrity — do rules reference declared variables?
  *   3. Guard coverage — do invariants have backing structural guards?
  *   4. Contradiction detection — do rules conflict?
- *   5. Orphan detection — unused variables, unreachable rules
- *   6. Schema validation — values within declared ranges
+ *   5. Guard shadow detection — do guards shadow or conflict with each other?
+ *   6. Orphan detection — unused variables, unreachable rules
+ *   7. Schema validation — values within declared ranges
  *
  * INVARIANTS:
  *   - Deterministic: same world → same report, always.
@@ -42,6 +43,7 @@ export function validateWorld(world: WorldDefinition): ValidateReport {
   checkReferentialIntegrity(world, findings);
   checkGuardCoverage(world, findings);
   checkContradictions(world, findings);
+  checkGuardShadows(world, findings);
   checkOrphans(world, findings);
   checkSchemaViolations(world, findings);
 
@@ -545,7 +547,83 @@ function describeEffect(effect: Effect): string {
 }
 
 /**
- * Check 5: Orphan detection — unused variables, unreachable rules.
+ * Check 5: Guard shadow detection — do guards shadow or conflict with each other?
+ *
+ * Detects:
+ *   - Shadow: Guard B shares intent_patterns with Guard A, but A is BLOCK/PAUSE
+ *     and appears earlier → B can never fire for those patterns.
+ *   - Conflict: Two guards match the same patterns but enforce differently
+ *     (one BLOCK, one WARN) without role-gating or tool-scoping to differentiate.
+ */
+function checkGuardShadows(world: WorldDefinition, findings: ValidateFinding[]): void {
+  if (!world.guards?.guards || world.guards.guards.length < 2) return;
+
+  const guards = world.guards.guards;
+
+  for (let i = 0; i < guards.length; i++) {
+    const guardA = guards[i];
+    const enabledA = guardA.immutable || guardA.default_enabled !== false;
+    if (!enabledA) continue;
+    if (guardA.enforcement !== 'block' && guardA.enforcement !== 'pause') continue;
+
+    for (let j = i + 1; j < guards.length; j++) {
+      const guardB = guards[j];
+      const enabledB = guardB.immutable || guardB.default_enabled !== false;
+      if (!enabledB) continue;
+
+      // Find overlapping intent patterns
+      const overlap = guardA.intent_patterns.filter(
+        p => guardB.intent_patterns.includes(p),
+      );
+      if (overlap.length === 0) continue;
+
+      // Check if tool scoping differentiates them
+      if (guardA.appliesTo?.length && guardB.appliesTo?.length) {
+        const toolsA = new Set(guardA.appliesTo.map(t => t.toLowerCase()));
+        const toolsB = new Set(guardB.appliesTo.map(t => t.toLowerCase()));
+        const toolOverlap = [...toolsA].some(t => toolsB.has(t));
+        if (!toolOverlap) continue; // Different tool scopes — no shadow
+      }
+
+      // Check if role gating differentiates them
+      if (guardA.required_roles?.length && guardB.required_roles?.length) {
+        const rolesA = new Set(guardA.required_roles);
+        const rolesB = new Set(guardB.required_roles);
+        const roleOverlap = [...rolesA].some(r => rolesB.has(r));
+        if (!roleOverlap) continue; // Different role scopes — no shadow
+      }
+
+      const patternsStr = overlap.join(', ');
+
+      if (guardB.enforcement === guardA.enforcement) {
+        // Full shadow: same enforcement, same patterns, A always wins
+        findings.push(finding(
+          `guard-shadow-${guardA.id}-${guardB.id}`,
+          `Guard "${guardB.label}" (${guardB.id}) is shadowed by "${guardA.label}" (${guardA.id}) — ` +
+          `both ${guardA.enforcement.toUpperCase()} on patterns [${patternsStr}] but "${guardA.label}" appears first and will always win`,
+          'warning', 'contradiction',
+          ['guards/'],
+          `${guardA.id}, ${guardB.id}`,
+          `Remove "${guardB.label}", merge its patterns into "${guardA.label}", or reorder guards`,
+        ));
+      } else {
+        // Conflict: different enforcement on same patterns
+        findings.push(finding(
+          `guard-conflict-${guardA.id}-${guardB.id}`,
+          `Guards "${guardA.label}" (${guardA.enforcement.toUpperCase()}) and "${guardB.label}" (${guardB.enforcement.toUpperCase()}) ` +
+          `share patterns [${patternsStr}] — "${guardA.label}" always wins because it appears first`,
+          'warning', 'contradiction',
+          ['guards/'],
+          `${guardA.id}, ${guardB.id}`,
+          `If "${guardB.label}" should take precedence, move it before "${guardA.label}" in guards.json`,
+        ));
+      }
+    }
+  }
+}
+
+/**
+ * Check 6: Orphan detection — unused variables, unreachable rules.
  */
 function checkOrphans(world: WorldDefinition, findings: ValidateFinding[]): void {
   if (!world.stateSchema?.variables || !world.rules) return;
@@ -605,7 +683,7 @@ function checkOrphans(world: WorldDefinition, findings: ValidateFinding[]): void
 }
 
 /**
- * Check 6: Schema violations — values outside declared ranges.
+ * Check 7: Schema violations — values outside declared ranges.
  */
 function checkSchemaViolations(world: WorldDefinition, findings: ValidateFinding[]): void {
   if (!world.stateSchema?.variables) return;

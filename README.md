@@ -232,6 +232,46 @@ if (verdict.status === 'BLOCK') {
 }
 ```
 
+### Use with any AI agent (MCP proxy)
+
+If you're building with the OpenAI, Anthropic, or any other AI API directly, you don't need to modify your agent code. Point your agent at `neuroverse mcp` as its tool server — governance is automatic:
+
+```bash
+# Start the governed MCP server
+neuroverse mcp --world marketing_rules
+
+# Your agent talks MCP → NeuroVerse governs every tool call
+# No SDK changes needed. Works with any MCP-compatible client.
+```
+
+Every tool call flows through the guard engine before execution:
+
+```
+Your Agent → MCP protocol → neuroverse mcp → evaluateGuard() → tool execution
+                                    ↓
+                              BLOCK? → error returned to agent
+                              PAUSE? → held for human approval
+                              ALLOW? → tool executes normally
+```
+
+For non-MCP agents, use the adapters:
+
+```typescript
+// OpenAI
+import { createGovernedExecutor } from '@neuroverseos/governance/adapters/openai';
+const executor = await createGovernedExecutor({ worldPath: './world' });
+
+// LangChain
+import { GovernanceCallbackHandler } from '@neuroverseos/governance/adapters/langchain';
+const handler = await GovernanceCallbackHandler.create({ worldPath: './world' });
+
+// Express middleware
+import { governanceMiddleware } from '@neuroverseos/governance/adapters/express';
+app.use('/api', await governanceMiddleware({ worldPath: './world' }));
+```
+
+**Key principle:** Governance is enforced at the tool-execution layer, not the prompt layer. It doesn't matter which AI powers the agent — the rules are the same.
+
 ---
 
 ## Plan Enforcement
