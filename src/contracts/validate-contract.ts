@@ -20,6 +20,21 @@
  *   - Every finding includes the source block and a human-readable message.
  */
 
+// ─── Validation Mode ─────────────────────────────────────────────────────────
+
+/**
+ * Controls the strictness of governance validation.
+ *
+ * - `dev`:      Lenient — governance findings are downgraded to info. Build always succeeds.
+ * - `standard`: Recommended default — governance findings are warnings. Build always succeeds.
+ * - `strict`:   Compliance — governance findings stay as warnings but are flagged for attention.
+ *               Build still succeeds (worlds always work) but the report highlights all gaps.
+ *
+ * Structural issues (missing blocks, broken references, schema violations) are
+ * always reported at their natural severity regardless of mode.
+ */
+export type ValidationMode = 'dev' | 'standard' | 'strict';
+
 // ─── Finding Types ───────────────────────────────────────────────────────────
 
 export type FindingSeverity = 'error' | 'warning' | 'info';
@@ -81,6 +96,34 @@ export interface ValidateSummary {
 
   /** Whether the world passes full validation (no errors) */
   isHealthy: boolean;
+
+  /** Governance health — actionable summary of coverage gaps */
+  governanceHealth?: GovernanceHealth;
+}
+
+/**
+ * Actionable governance health summary.
+ * Provides at-a-glance understanding of how well-governed a world is.
+ */
+export interface GovernanceHealth {
+  /** How many declared action surfaces are governed vs total */
+  surfacesCovered: number;
+  surfacesTotal: number;
+  /** Individual surface governance status */
+  surfaces: Array<{ name: string; governed: boolean }>;
+
+  /** How many structural invariants are enforced vs total */
+  invariantsEnforced: number;
+  invariantsTotal: number;
+
+  /** Number of shadowed guards detected */
+  shadowedGuards: number;
+
+  /** Number of unenforced invariants */
+  unenforcedInvariants: number;
+
+  /** Overall risk level */
+  riskLevel: 'low' | 'moderate' | 'high';
 }
 
 /**
@@ -106,6 +149,9 @@ export interface ValidateReport {
 
   /** High-level summary */
   summary: ValidateSummary;
+
+  /** Validation mode used */
+  validationMode: ValidationMode;
 
   /** All findings, ordered by severity (errors first) */
   findings: ValidateFinding[];

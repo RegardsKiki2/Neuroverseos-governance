@@ -19,7 +19,7 @@
 import { validateWorld } from '../engine/validate-engine';
 import { loadWorld } from '../loader/world-loader';
 import { VALIDATE_EXIT_CODES } from '../contracts/validate-contract';
-import type { ValidateReport, ValidateExitCode } from '../contracts/validate-contract';
+import type { ValidateReport, ValidateExitCode, ValidationMode } from '../contracts/validate-contract';
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
@@ -28,11 +28,13 @@ type OutputFormat = 'full' | 'summary' | 'findings';
 interface CliArgs {
   worldPath: string;
   format: OutputFormat;
+  mode: ValidationMode;
 }
 
 function parseArgs(argv: string[]): CliArgs {
   let worldPath = '';
   let format: OutputFormat = 'full';
+  let mode: ValidationMode = 'standard';
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -45,6 +47,13 @@ function parseArgs(argv: string[]): CliArgs {
       } else {
         throw new Error(`Invalid format: "${val}". Must be full, summary, or findings.`);
       }
+    } else if (arg === '--mode' && i + 1 < argv.length) {
+      const val = argv[++i];
+      if (val === 'dev' || val === 'standard' || val === 'strict') {
+        mode = val;
+      } else {
+        throw new Error(`Invalid mode: "${val}". Must be dev, standard, or strict.`);
+      }
     }
   }
 
@@ -52,7 +61,7 @@ function parseArgs(argv: string[]): CliArgs {
     throw new Error('--world <path> is required');
   }
 
-  return { worldPath, format };
+  return { worldPath, format, mode };
 }
 
 // ─── Output Formatters ───────────────────────────────────────────────────────
@@ -87,7 +96,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     const world = await loadWorld(args.worldPath);
 
     // Validate
-    const report = validateWorld(world);
+    const report = validateWorld(world, args.mode);
 
     // Output
     process.stdout.write(formatOutput(report, args.format) + '\n');

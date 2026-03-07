@@ -131,9 +131,11 @@ export type {
   ValidateReport,
   ValidateFinding,
   ValidateSummary,
+  GovernanceHealth,
   FindingSeverity,
   FindingCategory,
   ValidateExitCode,
+  ValidationMode,
 } from './contracts/validate-contract';
 
 export { VALIDATE_EXIT_CODES } from './contracts/validate-contract';

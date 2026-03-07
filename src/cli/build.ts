@@ -123,6 +123,50 @@ export function traceCausalChains(rules: ParsedRule[]): string[][] {
   return unique.slice(0, 3); // Show top 3 chains
 }
 
+// ─── Governance Health Renderer ──────────────────────────────────────────────
+
+import type { GovernanceHealth } from '../contracts/validate-contract';
+
+/**
+ * Render governance health as a human-readable text block.
+ *
+ * Example output:
+ *   GOVERNANCE HEALTH
+ *     Coverage: 2 / 4 action surfaces governed
+ *     Invariants enforced: 1 / 3
+ *     Shadowed guards: 1
+ *
+ *     Surfaces:
+ *       shell: governed
+ *       db: governed
+ *       http: unguarded
+ *       email: unguarded
+ *
+ *     Risk level: Moderate
+ */
+export function renderGovernanceHealth(health: GovernanceHealth): string {
+  const lines: string[] = [];
+  lines.push('GOVERNANCE HEALTH');
+  lines.push(`  Coverage: ${health.surfacesCovered} / ${health.surfacesTotal} action surfaces governed`);
+  lines.push(`  Invariants enforced: ${health.invariantsEnforced} / ${health.invariantsTotal}`);
+  if (health.shadowedGuards > 0) {
+    lines.push(`  Shadowed guards: ${health.shadowedGuards}`);
+  }
+  if (health.unenforcedInvariants > 0) {
+    lines.push(`  Unenforced invariants: ${health.unenforcedInvariants}`);
+  }
+  if (health.surfaces.length > 0) {
+    lines.push('');
+    lines.push('  Surfaces:');
+    for (const s of health.surfaces) {
+      lines.push(`    ${s.name}: ${s.governed ? 'governed' : 'unguarded'}`);
+    }
+  }
+  lines.push('');
+  lines.push(`  Risk level: ${health.riskLevel.charAt(0).toUpperCase() + health.riskLevel.slice(1)}`);
+  return lines.join('\n');
+}
+
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
 interface BuildArgs {

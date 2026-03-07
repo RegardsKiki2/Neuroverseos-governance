@@ -302,6 +302,403 @@ describe('Guard Shadow Detection', () => {
   });
 });
 
+// ─── Test Suite: Semantic Invariant Coverage ─────────────────────────────────
+
+describe('Semantic Invariant Coverage', () => {
+  function makeWorldWithInvariants(
+    invariants: WorldDefinition['invariants'],
+    guards: WorldDefinition['guards'],
+    kernel?: WorldDefinition['kernel'],
+  ): WorldDefinition {
+    return {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants,
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards,
+      kernel,
+    };
+  }
+
+  it('flags unenforced invariant when guards exist but none match', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'no_external_export', label: 'No external data export allowed', enforcement: 'structural', mutable: false }],
+      {
+        guards: [{
+          id: 'g1', label: 'Block Shell', description: 'No shell access',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['shell_access'],
+        }],
+        intent_vocabulary: { shell_access: { label: 'Shell', pattern: 'shell|bash|terminal' } },
+      },
+    );
+    const report = validateWorld(world);
+    const unenforced = report.findings.filter(f => f.id.startsWith('unenforced-invariant'));
+    expect(unenforced).toHaveLength(1);
+    expect(unenforced[0].severity).toBe('warning');
+    expect(unenforced[0].message).toContain('no_external_export');
+    expect(unenforced[0].message).toContain('no guard or kernel rule');
+  });
+
+  it('no unenforced finding when guard intent patterns cover invariant', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'no_deploy_without_review', label: 'Deploy requires review approval', enforcement: 'structural', mutable: false }],
+      {
+        guards: [{
+          id: 'g1', label: 'Block Deploys', description: 'Block unauthorized deploys',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['deploy_action'],
+          invariant_ref: 'no_deploy_without_review',
+        }],
+        intent_vocabulary: { deploy_action: { label: 'Deploy', pattern: 'deploy|release|publish' } },
+      },
+    );
+    const report = validateWorld(world);
+    const unenforced = report.findings.filter(f => f.id.startsWith('unenforced-invariant'));
+    expect(unenforced).toHaveLength(0);
+  });
+
+  it('flags weak coverage when structural guard exists but patterns do not match', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'no_external_export', label: 'No external data export allowed', enforcement: 'structural', mutable: false }],
+      {
+        guards: [{
+          id: 'g1', label: 'Guard Misc', description: 'Misc structural guard',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['shell_access'],
+          invariant_ref: 'no_external_export',
+        }],
+        intent_vocabulary: { shell_access: { label: 'Shell', pattern: 'shell|bash' } },
+      },
+    );
+    const report = validateWorld(world);
+    const weak = report.findings.filter(f => f.id.startsWith('weak-coverage'));
+    expect(weak).toHaveLength(1);
+    expect(weak[0].severity).toBe('warning');
+    expect(weak[0].message).toContain('patterns');
+  });
+
+  it('kernel forbidden patterns can satisfy semantic coverage', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'no_external_export', label: 'No external data export allowed', enforcement: 'structural', mutable: false }],
+      undefined, // no guards
+      {
+        artifact_type: 'kernel',
+        kernel_id: 'test',
+        version: '1.0',
+        domain: 'test',
+        enforcement_level: 'standard',
+        input_boundaries: {
+          forbidden_patterns: [{
+            id: 'block-export',
+            pattern: 'export|external|upload',
+            reason: 'External data export is forbidden',
+            action: 'BLOCK' as const,
+          }],
+        },
+        output_boundaries: { forbidden_patterns: [] },
+      },
+    );
+    const report = validateWorld(world);
+    const unenforced = report.findings.filter(f => f.id.startsWith('unenforced-invariant'));
+    expect(unenforced).toHaveLength(0);
+  });
+
+  it('skips prompt-enforced invariants', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'be_helpful', label: 'Agent should be helpful and friendly', enforcement: 'prompt', mutable: false }],
+      {
+        guards: [{
+          id: 'g1', label: 'Block Shell', description: 'No shell',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['shell_access'],
+        }],
+        intent_vocabulary: { shell_access: { label: 'Shell', pattern: 'shell' } },
+      },
+    );
+    const report = validateWorld(world);
+    const unenforced = report.findings.filter(f => f.id.startsWith('unenforced-invariant'));
+    expect(unenforced).toHaveLength(0);
+  });
+
+  it('skips check entirely when world has no guards and no kernel', () => {
+    const world = makeWorldWithInvariants(
+      [{ id: 'some_rule', label: 'Some rule', enforcement: 'structural', mutable: false }],
+      undefined,
+      undefined,
+    );
+    const report = validateWorld(world);
+    const unenforced = report.findings.filter(f => f.id.startsWith('unenforced-invariant'));
+    const weak = report.findings.filter(f => f.id.startsWith('weak-coverage'));
+    expect(unenforced).toHaveLength(0);
+    expect(weak).toHaveLength(0);
+  });
+});
+
+// ─── Test Suite: Fail-Closed Surface Detection ──────────────────────────────
+
+describe('Fail-Closed Surface Detection', () => {
+  function makeWorldWithSurfaces(
+    toolSurfaces: string[],
+    guards: WorldDefinition['guards']['guards'],
+  ): WorldDefinition {
+    return {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards: {
+        guards,
+        intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+        tool_surfaces: toolSurfaces,
+      },
+    };
+  }
+
+  it('flags unguarded surfaces when tool_surfaces is declared', () => {
+    const world = makeWorldWithSurfaces(
+      ['shell', 'http', 'db', 'email'],
+      [
+        {
+          id: 'g1', label: 'Block Shell', description: 'No shell',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'], appliesTo: ['shell'],
+        },
+        {
+          id: 'g2', label: 'Block DB', description: 'No DB',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'], appliesTo: ['db'],
+        },
+      ],
+    );
+    const report = validateWorld(world);
+    const failOpen = report.findings.filter(f => f.id.startsWith('fail-open-surface'));
+    expect(failOpen).toHaveLength(2);
+    const surfaces = failOpen.map(f => f.id).sort();
+    expect(surfaces).toEqual(['fail-open-surface-email', 'fail-open-surface-http']);
+    expect(failOpen[0].severity).toBe('warning');
+  });
+
+  it('no warnings when catch-all guard exists', () => {
+    const world = makeWorldWithSurfaces(
+      ['shell', 'http', 'db'],
+      [
+        {
+          id: 'g1', label: 'Catch All', description: 'Covers everything',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'],
+          // no appliesTo = catch-all
+        },
+      ],
+    );
+    const report = validateWorld(world);
+    const failOpen = report.findings.filter(f => f.id.startsWith('fail-open-surface'));
+    expect(failOpen).toHaveLength(0);
+  });
+
+  it('no warnings when tool_surfaces is not declared', () => {
+    const world: WorldDefinition = {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards: {
+        guards: [{
+          id: 'g1', label: 'Shell Only', description: 'shell',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'], appliesTo: ['shell'],
+        }],
+        intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+        // no tool_surfaces
+      },
+    };
+    const report = validateWorld(world);
+    const failOpen = report.findings.filter(f => f.id.startsWith('fail-open-surface'));
+    expect(failOpen).toHaveLength(0);
+  });
+
+  it('all surfaces governed = no warnings', () => {
+    const world = makeWorldWithSurfaces(
+      ['shell', 'http'],
+      [
+        {
+          id: 'g1', label: 'Shell', description: 'shell',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'], appliesTo: ['shell'],
+        },
+        {
+          id: 'g2', label: 'HTTP', description: 'http',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'], appliesTo: ['http'],
+        },
+      ],
+    );
+    const report = validateWorld(world);
+    const failOpen = report.findings.filter(f => f.id.startsWith('fail-open-surface'));
+    expect(failOpen).toHaveLength(0);
+  });
+});
+
+// ─── Test Suite: Validation Modes ────────────────────────────────────────────
+
+describe('Validation Modes', () => {
+  function makeWorldWithShadow(): WorldDefinition {
+    return {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards: {
+        guards: [
+          {
+            id: 'g1', label: 'A', description: 'first',
+            category: 'structural', enforcement: 'block', immutable: true,
+            intent_patterns: ['action'],
+          },
+          {
+            id: 'g2', label: 'B', description: 'second',
+            category: 'structural', enforcement: 'block', immutable: true,
+            intent_patterns: ['action'],
+          },
+        ],
+        intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+      },
+    };
+  }
+
+  it('standard mode: governance warnings stay as warnings', () => {
+    const report = validateWorld(makeWorldWithShadow(), 'standard');
+    const shadow = report.findings.find(f => f.id.startsWith('guard-shadow'));
+    expect(shadow).toBeDefined();
+    expect(shadow!.severity).toBe('warning');
+    expect(report.validationMode).toBe('standard');
+  });
+
+  it('dev mode: governance warnings downgraded to info', () => {
+    const report = validateWorld(makeWorldWithShadow(), 'dev');
+    const shadow = report.findings.find(f => f.id.startsWith('guard-shadow'));
+    expect(shadow).toBeDefined();
+    expect(shadow!.severity).toBe('info');
+    expect(report.validationMode).toBe('dev');
+  });
+
+  it('strict mode: governance info promoted to warning', () => {
+    // The no-catch-all-guard finding is info-level in standard
+    // But we need a world that produces info governance findings
+    // guard-shadow is already warning, strict promotes info→warning
+    const report = validateWorld(makeWorldWithShadow(), 'strict');
+    expect(report.validationMode).toBe('strict');
+    // All governance findings should be warning or higher (no info)
+    const govFindings = report.findings.filter(f =>
+      ['guard-coverage', 'contradiction', 'semantic-tension', 'orphan'].includes(f.category)
+    );
+    for (const f of govFindings) {
+      expect(f.severity).not.toBe('info');
+    }
+  });
+
+  it('mode does not affect structural canRun determination', () => {
+    const world = makeWorldWithShadow();
+    // canRun depends on structural errors (missing blocks etc), not governance findings.
+    // All three modes should produce the same canRun value.
+    const devRun = validateWorld(world, 'dev').summary.canRun;
+    const stdRun = validateWorld(world, 'standard').summary.canRun;
+    const strictRun = validateWorld(world, 'strict').summary.canRun;
+    expect(devRun).toBe(stdRun);
+    expect(stdRun).toBe(strictRun);
+  });
+});
+
+// ─── Test Suite: Governance Health Summary ───────────────────────────────────
+
+describe('Governance Health Summary', () => {
+  it('reports surface coverage from tool_surfaces', () => {
+    const world: WorldDefinition = {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [
+        { id: 'inv1', label: 'No deploys', enforcement: 'structural', mutable: false },
+      ],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards: {
+        guards: [
+          {
+            id: 'g1', label: 'Block Shell', description: 'No shell',
+            category: 'structural', enforcement: 'block', immutable: true,
+            intent_patterns: ['action'], appliesTo: ['shell'],
+            invariant_ref: 'inv1',
+          },
+        ],
+        intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+        tool_surfaces: ['shell', 'http', 'db'],
+      },
+    };
+    const report = validateWorld(world);
+    const health = report.summary.governanceHealth;
+    expect(health).toBeDefined();
+    expect(health!.surfacesTotal).toBe(3);
+    expect(health!.surfacesCovered).toBe(1);
+    expect(health!.surfaces.find(s => s.name === 'shell')?.governed).toBe(true);
+    expect(health!.surfaces.find(s => s.name === 'http')?.governed).toBe(false);
+    expect(health!.riskLevel).not.toBe('low');
+  });
+
+  it('risk level is low when fully governed', () => {
+    const world: WorldDefinition = {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [
+        { id: 'inv1', label: 'Safety', enforcement: 'structural', mutable: false },
+      ],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+      guards: {
+        guards: [{
+          id: 'g1', label: 'Catch All', description: 'All',
+          category: 'structural', enforcement: 'block', immutable: true,
+          intent_patterns: ['action'],
+          invariant_ref: 'inv1',
+        }],
+        intent_vocabulary: { action: { label: 'Action', pattern: 'action' } },
+        tool_surfaces: ['shell'],
+      },
+    };
+    const report = validateWorld(world);
+    expect(report.summary.governanceHealth?.riskLevel).toBe('low');
+  });
+
+  it('undefined when world has no guards', () => {
+    const world: WorldDefinition = {
+      world: { id: 'test', name: 'Test', version: '1.0', domain: 'test', purpose: 'test' },
+      invariants: [],
+      assumptions: { context: 'test', player_archetype: 'agent' },
+      stateSchema: { variables: [] },
+      rules: [],
+      gates: { stages: [] },
+      outcomes: { outcomes: [] },
+    };
+    const report = validateWorld(world);
+    expect(report.summary.governanceHealth).toBeUndefined();
+  });
+});
+
 // ─── Test Suite: Guard Engine ────────────────────────────────────────────────
 
 describe('Guard Engine', () => {

@@ -335,6 +335,10 @@ export interface IntentPattern {
 export interface GuardsConfig {
   guards: Guard[];
   intent_vocabulary: Record<string, IntentPattern>;
+  /** All known action surfaces (e.g. "shell", "http", "db", "email", "deploy").
+   *  When declared, the validator checks that every surface has at least one
+   *  governing guard — surfaces without guards are reported as fail-open. */
+  tool_surfaces?: string[];
 }
 
 // ─── Complete World Definition ─────────────────────────────────────────────
