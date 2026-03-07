@@ -18,7 +18,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import { resolveWorldPath } from '../loader/world-resolver';
+import { resolveWorldPath, describeActiveWorld } from '../loader/world-resolver';
 import type { PlanDefinition } from '../contracts/plan-contract';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -112,6 +112,13 @@ export async function main(args: string[]): Promise<void> {
     );
     process.exit(1);
     return;
+  }
+
+  // Show which world is being used
+  const explicitWorld = parseArg(args, '--world');
+  const worldInfo = describeActiveWorld(explicitWorld);
+  if (worldInfo) {
+    process.stderr.write(`Using world: ${worldInfo.name}\n`);
   }
 
   // Resolve plan

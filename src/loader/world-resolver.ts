@@ -123,6 +123,36 @@ export function resolveWorldPath(
 }
 
 /**
+ * Describe how the current world was resolved (for "Using world:" messages).
+ * Returns { name, source } or undefined if no world is active.
+ */
+export function describeActiveWorld(
+  explicit?: string,
+  cwd: string = process.cwd(),
+): { name: string; source: string } | undefined {
+  if (explicit) {
+    return { name: explicit, source: '--world flag' };
+  }
+
+  const envWorld = process.env.NEUROVERSE_WORLD;
+  if (envWorld) {
+    return { name: envWorld, source: 'NEUROVERSE_WORLD env var' };
+  }
+
+  const activeName = getActiveWorldName(cwd);
+  if (activeName) {
+    return { name: activeName, source: '.neuroverse/active_world' };
+  }
+
+  const worlds = listWorlds(cwd);
+  if (worlds.length === 1) {
+    return { name: worlds[0].name, source: 'auto-detected (only world)' };
+  }
+
+  return undefined;
+}
+
+/**
  * Resolve a string that could be a world name or a file path.
  */
 function resolveNameOrPath(ref: string, cwd: string): string {

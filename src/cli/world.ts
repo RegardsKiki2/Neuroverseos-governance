@@ -17,7 +17,7 @@
 
 import { loadWorld } from '../loader/world-loader';
 import { validateWorld } from '../engine/validate-engine';
-import { listWorlds, setActiveWorld, getActiveWorldName, resolveWorldPath } from '../loader/world-resolver';
+import { listWorlds, setActiveWorld, getActiveWorldName, resolveWorldPath, describeActiveWorld } from '../loader/world-resolver';
 import type { WorldDefinition } from '../types';
 
 const USAGE = `
@@ -26,6 +26,7 @@ neuroverse world — World management
 Usage:
   neuroverse world list                    List available worlds
   neuroverse world use <name>              Set the active world
+  neuroverse world current                 Show which world is active and why
   neuroverse world status [path|name]      Show world identity and health
   neuroverse world diff <path1> <path2>    Compare two world versions
   neuroverse world snapshot <path>         Save a timestamped snapshot
@@ -385,6 +386,26 @@ function worldUse(name: string): void {
   process.stdout.write(`Active world: ${name}\n`);
 }
 
+// ─── Current ─────────────────────────────────────────────────────────────────
+
+function worldCurrent(json: boolean): void {
+  const info = describeActiveWorld();
+
+  if (json) {
+    process.stdout.write(JSON.stringify(info ?? { name: null, source: null }, null, 2) + '\n');
+    return;
+  }
+
+  if (!info) {
+    process.stdout.write('No active world.\n');
+    process.stdout.write('Set one with: neuroverse world use <name>\n');
+    return;
+  }
+
+  process.stdout.write(`Active world: ${info.name}\n`);
+  process.stdout.write(`Source: ${info.source}\n`);
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
@@ -406,6 +427,9 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         process.exit(1);
       }
       return worldUse(paths[0]);
+    }
+    case 'current': {
+      return worldCurrent(!!flags.json);
     }
     case 'status': {
       // Resolve name or path; fall back to active world

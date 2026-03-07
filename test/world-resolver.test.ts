@@ -6,6 +6,7 @@ import {
   getActiveWorldName,
   setActiveWorld,
   resolveWorldPath,
+  describeActiveWorld,
 } from '../src/loader/world-resolver';
 
 // ─── Test Fixture ─────────────────────────────────────────────────────────────
@@ -145,5 +146,41 @@ describe('resolveWorldPath', () => {
     process.env.NEUROVERSE_WORLD = 'finance';
     const result = resolveWorldPath(undefined, TEST_DIR);
     expect(result).toBe(join(TEST_DIR, '.neuroverse', 'worlds', 'finance'));
+  });
+});
+
+// ─── describeActiveWorld ─────────────────────────────────────────────────────
+
+describe('describeActiveWorld', () => {
+  it('returns explicit flag source', () => {
+    const result = describeActiveWorld('./my-world/', TEST_DIR);
+    expect(result).toEqual({ name: './my-world/', source: '--world flag' });
+  });
+
+  it('returns env var source', () => {
+    makeWorld('finance');
+    process.env.NEUROVERSE_WORLD = 'finance';
+    const result = describeActiveWorld(undefined, TEST_DIR);
+    expect(result).toEqual({ name: 'finance', source: 'NEUROVERSE_WORLD env var' });
+  });
+
+  it('returns active_world file source', () => {
+    makeWorld('deploy');
+    setActiveWorld('deploy', TEST_DIR);
+    const result = describeActiveWorld(undefined, TEST_DIR);
+    expect(result).toEqual({ name: 'deploy', source: '.neuroverse/active_world' });
+  });
+
+  it('returns auto-detected source for single world', () => {
+    makeWorld('only_one');
+    const result = describeActiveWorld(undefined, TEST_DIR);
+    expect(result).toEqual({ name: 'only_one', source: 'auto-detected (only world)' });
+  });
+
+  it('returns undefined when no world can be resolved', () => {
+    makeWorld('a');
+    makeWorld('b');
+    const result = describeActiveWorld(undefined, TEST_DIR);
+    expect(result).toBeUndefined();
   });
 });

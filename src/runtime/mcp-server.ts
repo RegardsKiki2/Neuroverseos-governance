@@ -28,7 +28,7 @@ import type { GuardEvent, GuardEngineOptions } from '../contracts/guard-contract
 import type { PlanDefinition } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { loadWorld } from '../loader/world-loader';
-import { resolveWorldPath } from '../loader/world-resolver';
+import { resolveWorldPath, describeActiveWorld } from '../loader/world-resolver';
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join, resolve } from 'path';
@@ -747,6 +747,11 @@ export async function startMcpServer(args: string[]): Promise<void> {
     );
     process.exit(1);
     return;
+  }
+
+  const worldInfo = describeActiveWorld(parseArg('--world'));
+  if (worldInfo) {
+    process.stderr.write(`Using world: ${worldInfo.name}\n`);
   }
 
   const server = new McpGovernanceServer({

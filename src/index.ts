@@ -108,6 +108,7 @@ export {
   listWorlds,
   getActiveWorldName,
   setActiveWorld,
+  describeActiveWorld,
 } from './loader/world-resolver';
 
 export type { WorldInfo } from './loader/world-resolver';

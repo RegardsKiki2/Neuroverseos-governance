@@ -119,6 +119,51 @@ echo '{"intent":"export customer emails to spreadsheet"}' | neuroverse guard --w
 
 ---
 
+## Multiple Worlds (like Terraform workspaces)
+
+Build different worlds for different environments:
+
+```bash
+# Build worlds from different rule sets
+neuroverse build marketing-rules.md
+neuroverse build deploy-rules.md
+neuroverse build finance-rules.md
+
+# See what's available
+neuroverse worlds
+# AVAILABLE WORLDS
+# ────────────────────────────────────
+#   → marketing_rules (active)
+#     deploy_rules
+#     finance_rules
+
+# Switch context
+neuroverse world use deploy_rules
+# Active world: deploy_rules
+
+# Now all commands use deploy rules — no --world flag needed
+echo '{"intent":"deploy to prod"}' | neuroverse guard
+# Using world: deploy_rules
+# { "status": "PAUSE", "reason": "Production deploy requires approval" }
+
+# Check which world is active
+neuroverse world current
+# Active world: deploy_rules
+# Source: .neuroverse/active_world
+```
+
+Override per-command or in CI:
+
+```bash
+# Per-command override
+neuroverse guard --world marketing_rules
+
+# Environment variable (perfect for CI/agents)
+NEUROVERSE_WORLD=finance_rules neuroverse guard
+```
+
+---
+
 ## How It Works
 
 ```

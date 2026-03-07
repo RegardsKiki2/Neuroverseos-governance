@@ -19,7 +19,7 @@
 
 import { evaluateGuard } from '../engine/guard-engine';
 import { loadWorld } from '../loader/world-loader';
-import { resolveWorldPath } from '../loader/world-resolver';
+import { resolveWorldPath, describeActiveWorld } from '../loader/world-resolver';
 import { GUARD_EXIT_CODES } from '../contracts/guard-contract';
 import type { GuardEvent, GuardEngineOptions, GuardExitCode } from '../contracts/guard-contract';
 
@@ -77,6 +77,12 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       throw new Error(
         'No world specified. Use --world <path>, set NEUROVERSE_WORLD, or run `neuroverse world use <name>`',
       );
+    }
+
+    // Show which world is being used (stderr so it doesn't pollute JSON output)
+    const worldInfo = describeActiveWorld(args.worldPath);
+    if (worldInfo) {
+      process.stderr.write(`Using world: ${worldInfo.name}\n`);
     }
 
     // Read event from stdin
