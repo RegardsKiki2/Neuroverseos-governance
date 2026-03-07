@@ -24,6 +24,9 @@ Commands:
   init           Scaffold a new .nv-world.md template
   validate       Static analysis on world files
   guard          Runtime governance evaluation (stdin → stdout)
+  test           Run guard simulation suite against a world
+  redteam        Adversarial containment testing (agent escape detection)
+  doctor         Environment sanity check
   plan           Plan enforcement (compile, check, status, advance, derive)
   run            Governed runtime (pipe mode or interactive chat)
   mcp            MCP governance server (for Claude, Cursor, etc.)
@@ -43,6 +46,9 @@ Usage:
   neuroverse init [--name "World Name"] [--output path]
   neuroverse validate --world <dir> [--format full|summary|findings]
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
+  neuroverse test --world <dir> [--fuzz] [--count N]
+  neuroverse redteam --world <dir> [--level basic|standard|strict]
+  neuroverse doctor [--world <dir>] [--json]
   neuroverse trace [--log <path>] [--summary] [--filter BLOCK] [--last 20]
   neuroverse impact [--log <path>] [--json]
   neuroverse world status <path>
@@ -70,6 +76,9 @@ Examples:
   neuroverse run --pipe --world ./world/ --plan plan.json
   neuroverse run --interactive --world ./world/ --provider openai
   neuroverse mcp --world ./world/ --plan plan.json
+  neuroverse test --world ./world/ --fuzz --count 50
+  neuroverse redteam --world ./world/ --level strict
+  neuroverse doctor
 `.trim();
 
 async function main(): Promise<void> {
@@ -109,6 +118,18 @@ async function main(): Promise<void> {
     case 'guard': {
       const { main: guardMain } = await import('./guard');
       return guardMain(subArgs);
+    }
+    case 'test': {
+      const { main: testMain } = await import('./test');
+      return testMain(subArgs);
+    }
+    case 'redteam': {
+      const { main: redteamMain } = await import('./redteam');
+      return redteamMain(subArgs);
+    }
+    case 'doctor': {
+      const { main: doctorMain } = await import('./doctor');
+      return doctorMain(subArgs);
     }
     case 'plan': {
       const { main: planMain } = await import('./plan');
