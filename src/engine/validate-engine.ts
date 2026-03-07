@@ -11,8 +11,10 @@
  *   4. Contradiction detection — do rules conflict?
  *   5. Guard shadow detection — do guards shadow or conflict with each other?
  *   5b. Fail-closed surface detection — are action surfaces ungoverned?
- *   6. Orphan detection — unused variables, unreachable rules
- *   7. Schema validation — values within declared ranges
+ *   6. Reachability analysis — are there rules/guards that can never trigger?
+ *   7. State space coverage — do guard conditions cover all enumerated states?
+ *   8. Orphan detection — unused variables, unreachable rules
+ *   9. Schema validation — values within declared ranges
  *
  * INVARIANTS:
  *   - Deterministic: same world → same report, always.
@@ -50,6 +52,8 @@ export function validateWorld(world: WorldDefinition, mode: ValidationMode = 'st
   checkContradictions(world, findings);
   checkGuardShadows(world, findings);
   checkFailClosedSurfaces(world, findings);
+  checkReachability(world, findings);
+  checkStateCoverage(world, findings);
   checkOrphans(world, findings);
   checkSchemaViolations(world, findings);
 
@@ -854,7 +858,238 @@ function checkFailClosedSurfaces(world: WorldDefinition, findings: ValidateFindi
 }
 
 /**
- * Check 7: Orphan detection — unused variables, unreachable rules.
+ * Check 6: Reachability analysis — are there rules whose triggers can never be satisfied?
+ *
+ * A rule is unreachable when its trigger condition is logically impossible given
+ * the state schema's declared constraints (min/max for numbers, options for enums,
+ * boolean domain for booleans).
+ *
+ * Examples of unreachable triggers:
+ *   - trigger: field > 100, but schema declares max: 50
+ *   - trigger: field < 0, but schema declares min: 0
+ *   - trigger: field == "invalid", but schema enum options don't include "invalid"
+ *   - trigger: field == true, but field is a number type
+ *
+ * Also checks gates (viability classifications) for the same conditions.
+ */
+function checkReachability(world: WorldDefinition, findings: ValidateFinding[]): void {
+  if (!world.stateSchema?.variables) return;
+
+  const vars = world.stateSchema.variables;
+
+  // Check rules
+  for (const rule of world.rules ?? []) {
+    for (const trigger of rule.triggers) {
+      if (trigger.source !== 'state') continue;
+      const unreachable = isTriggerUnreachable(trigger, vars);
+      if (unreachable) {
+        findings.push(finding(
+          `unreachable-rule-${rule.id}-${trigger.field}`,
+          `Rule "${rule.id}" has unreachable trigger: ${trigger.field} ${trigger.operator} ${JSON.stringify(trigger.value)} — ${unreachable}`,
+          'warning', 'contradiction',
+          ['rules/', 'state-schema.json'],
+          rule.id,
+          `Remove this rule or adjust the trigger condition to match the schema constraints for "${trigger.field}"`,
+        ));
+      }
+    }
+
+    // Check collapse_check
+    if (rule.collapse_check) {
+      const cc = rule.collapse_check;
+      const unreachable = isTriggerUnreachable(
+        { field: cc.field, operator: cc.operator, value: cc.value },
+        vars,
+      );
+      if (unreachable) {
+        findings.push(finding(
+          `unreachable-collapse-${rule.id}`,
+          `Rule "${rule.id}" has unreachable collapse_check: ${cc.field} ${cc.operator} ${cc.value} — ${unreachable}`,
+          'warning', 'contradiction',
+          ['rules/', 'state-schema.json'],
+          rule.id,
+        ));
+      }
+    }
+  }
+
+  // Check viability gates
+  for (const gate of world.gates?.viability_classification ?? []) {
+    const unreachable = isTriggerUnreachable(
+      { field: gate.field, operator: gate.operator, value: gate.value },
+      vars,
+    );
+    if (unreachable) {
+      findings.push(finding(
+        `unreachable-gate-${gate.status}`,
+        `Viability gate "${gate.status}" has unreachable condition: ${gate.field} ${gate.operator} ${gate.value} — ${unreachable}`,
+        'warning', 'contradiction',
+        ['gates.json', 'state-schema.json'],
+        `gate-${gate.status}`,
+      ));
+    }
+  }
+}
+
+/**
+ * Determine if a trigger condition is logically impossible given the schema.
+ * Returns a human-readable reason string if unreachable, null if reachable.
+ */
+function isTriggerUnreachable(
+  trigger: { field: string; operator: string; value: string | number | boolean | string[] },
+  vars: Record<string, StateVariable>,
+): string | null {
+  const variable = vars[trigger.field];
+  if (!variable) return null; // Unknown variable — referential integrity handles this
+
+  const { operator, value } = trigger;
+
+  if (variable.type === 'number') {
+    const numVal = typeof value === 'number' ? value : Number(value);
+    if (isNaN(numVal)) return null; // Non-numeric comparison on number field — skip
+
+    const min = variable.min;
+    const max = variable.max;
+
+    // Check: trigger requires value above max or below min
+    if (operator === '>' || operator === '>=') {
+      if (max !== undefined && numVal >= max && operator === '>') {
+        return `schema declares max=${max}, so ${trigger.field} can never exceed ${max}`;
+      }
+      if (max !== undefined && numVal > max && operator === '>=') {
+        return `schema declares max=${max}, so ${trigger.field} can never reach ${numVal}`;
+      }
+    }
+    if (operator === '<' || operator === '<=') {
+      if (min !== undefined && numVal <= min && operator === '<') {
+        return `schema declares min=${min}, so ${trigger.field} can never go below ${min}`;
+      }
+      if (min !== undefined && numVal < min && operator === '<=') {
+        return `schema declares min=${min}, so ${trigger.field} can never reach ${numVal}`;
+      }
+    }
+    if (operator === '==') {
+      if (min !== undefined && numVal < min) {
+        return `schema declares min=${min}, so ${trigger.field} can never equal ${numVal}`;
+      }
+      if (max !== undefined && numVal > max) {
+        return `schema declares max=${max}, so ${trigger.field} can never equal ${numVal}`;
+      }
+    }
+  }
+
+  if (variable.type === 'enum' && variable.options) {
+    if (operator === '==' && typeof value === 'string') {
+      if (!variable.options.includes(value)) {
+        return `"${value}" is not in enum options [${variable.options.join(', ')}]`;
+      }
+    }
+    if (operator === '!=' && typeof value === 'string') {
+      // != on a value not in options is always true — the rule always fires, which
+      // is suspicious but not unreachable. Only flag if the enum has exactly one
+      // option and they're comparing != to that option (always false = never fires).
+      if (variable.options.length === 1 && variable.options[0] === value) {
+        return `enum has only option "${value}", so != "${value}" can never be true`;
+      }
+    }
+    if (operator === 'in' && Array.isArray(value)) {
+      const validValues = value.filter(v => variable.options!.includes(v));
+      if (validValues.length === 0) {
+        return `none of [${value.join(', ')}] are in enum options [${variable.options.join(', ')}]`;
+      }
+    }
+  }
+
+  if (variable.type === 'boolean') {
+    // Boolean variables can only be true/false
+    if (operator === '==' && typeof value !== 'boolean' && value !== 'true' && value !== 'false') {
+      return `boolean variable compared to non-boolean value "${value}"`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check 7: State space coverage — do rule/gate conditions cover all enumerated states?
+ *
+ * For enumerated state variables, checks whether rules and gates that branch
+ * on those variables handle all possible values. Incomplete coverage means
+ * some states have undefined policy behavior.
+ *
+ * This is the NeuroVerse equivalent of state transition completeness from
+ * aircraft flight control validation: every control input must map to a
+ * deterministic outcome.
+ *
+ * Only reports for enum variables that are actually used in branching logic
+ * (triggers, gates). Doesn't flag variables used only in effects.
+ */
+function checkStateCoverage(world: WorldDefinition, findings: ValidateFinding[]): void {
+  if (!world.stateSchema?.variables) return;
+
+  const vars = world.stateSchema.variables;
+
+  // Find enum variables used in triggers or gates
+  for (const [varId, variable] of Object.entries(vars)) {
+    if (variable.type !== 'enum' || !variable.options || variable.options.length <= 1) continue;
+
+    const allOptions = new Set(variable.options);
+    const coveredOptions = new Set<string>();
+
+    // Collect values referenced by rule triggers
+    for (const rule of world.rules ?? []) {
+      for (const trigger of rule.triggers) {
+        if (trigger.field !== varId || trigger.source !== 'state') continue;
+
+        if (trigger.operator === '==' && typeof trigger.value === 'string') {
+          coveredOptions.add(trigger.value);
+        }
+        if (trigger.operator === 'in' && Array.isArray(trigger.value)) {
+          for (const v of trigger.value) coveredOptions.add(v);
+        }
+        if (trigger.operator === '!=') {
+          // != covers all values EXCEPT the one named
+          for (const opt of allOptions) {
+            if (opt !== trigger.value) coveredOptions.add(opt);
+          }
+        }
+      }
+    }
+
+    // Collect values referenced by viability gates
+    for (const gate of world.gates?.viability_classification ?? []) {
+      if (gate.field !== varId) continue;
+      if (gate.operator === '==' && typeof gate.value === 'string') {
+        coveredOptions.add(gate.value);
+      }
+      if (gate.operator === 'in' && Array.isArray(gate.value)) {
+        for (const v of gate.value) coveredOptions.add(v);
+      }
+    }
+
+    // Only report if the variable is actually used in branching
+    if (coveredOptions.size === 0) continue;
+
+    // Find uncovered options
+    const uncovered = [...allOptions].filter(opt => !coveredOptions.has(opt));
+
+    if (uncovered.length > 0 && uncovered.length < allOptions.size) {
+      findings.push(finding(
+        `incomplete-state-coverage-${varId}`,
+        `Enum variable "${varId}" has ${uncovered.length} uncovered state${uncovered.length > 1 ? 's' : ''}: ` +
+        `[${uncovered.join(', ')}] — rules/gates handle [${[...coveredOptions].join(', ')}] ` +
+        `but not all ${allOptions.size} declared options`,
+        'warning', 'guard-coverage',
+        ['state-schema.json', 'rules/', 'gates.json'],
+        varId,
+        `Add rules or gates that handle ${uncovered.map(u => `"${u}"`).join(', ')} for variable "${varId}"`,
+      ));
+    }
+  }
+}
+
+/**
+ * Check 8: Orphan detection — unused variables, unreachable rules.
  */
 function checkOrphans(world: WorldDefinition, findings: ValidateFinding[]): void {
   if (!world.stateSchema?.variables || !world.rules) return;
@@ -914,7 +1149,7 @@ function checkOrphans(world: WorldDefinition, findings: ValidateFinding[]): void
 }
 
 /**
- * Check 8: Schema violations — values outside declared ranges.
+ * Check 9: Schema violations — values outside declared ranges.
  */
 function checkSchemaViolations(world: WorldDefinition, findings: ValidateFinding[]): void {
   if (!world.stateSchema?.variables) return;
@@ -1083,15 +1318,18 @@ function computeGovernanceHealth(world: WorldDefinition, findings: ValidateFindi
     if (hasGuard) invariantsEnforced++;
   }
 
-  // Count shadows and unenforced from findings
+  // Count findings by type
   const shadowedGuards = findings.filter(f => f.id.startsWith('guard-shadow-')).length;
   const unenforcedInvariants = findings.filter(f => f.id.startsWith('unenforced-invariant-')).length;
+  const unreachableRules = findings.filter(f => f.id.startsWith('unreachable-')).length;
+  const incompleteStateCoverage = findings.filter(f => f.id.startsWith('incomplete-state-coverage-')).length;
 
   // Risk level
   const failOpenCount = findings.filter(f => f.id.startsWith('fail-open-surface-')).length;
   let riskLevel: GovernanceHealth['riskLevel'] = 'low';
-  if (unenforcedInvariants > 0 || failOpenCount > 0) riskLevel = 'moderate';
-  if (unenforcedInvariants > 2 || failOpenCount > 2 || (unenforcedInvariants > 0 && failOpenCount > 0)) riskLevel = 'high';
+  const totalIssues = unenforcedInvariants + failOpenCount + incompleteStateCoverage;
+  if (totalIssues > 0 || unreachableRules > 0) riskLevel = 'moderate';
+  if (totalIssues > 2 || (unenforcedInvariants > 0 && failOpenCount > 0) || incompleteStateCoverage > 2) riskLevel = 'high';
 
   return {
     surfacesCovered,
@@ -1101,6 +1339,8 @@ function computeGovernanceHealth(world: WorldDefinition, findings: ValidateFindi
     invariantsTotal: structuralInvariants.length,
     shadowedGuards,
     unenforcedInvariants,
+    unreachableRules,
+    incompleteStateCoverage,
     riskLevel,
   };
 }

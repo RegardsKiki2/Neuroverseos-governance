@@ -122,6 +122,12 @@ export interface GovernanceHealth {
   /** Number of unenforced invariants */
   unenforcedInvariants: number;
 
+  /** Number of unreachable rules/gates (dead policy logic) */
+  unreachableRules: number;
+
+  /** Number of enum variables with incomplete state coverage */
+  incompleteStateCoverage: number;
+
   /** Overall risk level */
   riskLevel: 'low' | 'moderate' | 'high';
 }

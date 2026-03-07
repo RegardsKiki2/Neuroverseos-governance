@@ -155,6 +155,12 @@ export function renderGovernanceHealth(health: GovernanceHealth): string {
   if (health.unenforcedInvariants > 0) {
     lines.push(`  Unenforced invariants: ${health.unenforcedInvariants}`);
   }
+  if (health.unreachableRules > 0) {
+    lines.push(`  Unreachable rules: ${health.unreachableRules}`);
+  }
+  if (health.incompleteStateCoverage > 0) {
+    lines.push(`  Incomplete state coverage: ${health.incompleteStateCoverage}`);
+  }
   if (health.surfaces.length > 0) {
     lines.push('');
     lines.push('  Surfaces:');
