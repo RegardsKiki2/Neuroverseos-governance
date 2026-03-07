@@ -34,16 +34,19 @@ interface PlanStep {
   description?: string;          // optional detail
   tools?: string[];              // restrict to specific tools (optional)
   requires?: string[];           // step IDs that must complete first (optional)
+  tags?: string[];               // semantic tags for action mapping (optional)
+  verify?: string;               // completion condition (optional)
   status: 'pending' | 'active' | 'completed' | 'skipped';
 }
 
 interface PlanConstraint {
   id: string;
-  type: 'budget' | 'time' | 'scope' | 'custom';
+  type: 'budget' | 'time' | 'scope' | 'approval' | 'custom';
   description: string;
   enforcement: 'block' | 'pause';  // hard stop or ask human
   limit?: number;
   unit?: string;
+  trigger?: string;              // pattern that activates this constraint
 }
 
 interface PlanDefinition {
@@ -62,6 +65,8 @@ interface PlanVerdict {
   status: 'ON_PLAN' | 'OFF_PLAN' | 'CONSTRAINT_VIOLATED' | 'PLAN_COMPLETE';
   reason?: string;
   matchedStep?: string;          // which step this action belongs to
+  closestStep?: string;          // nearest step (shown when OFF_PLAN for self-correction)
+  similarityScore?: number;      // how close the action was to the nearest step
   progress: {
     completed: number;
     total: number;
@@ -95,14 +100,14 @@ world: ai_safety_policy
 ---
 
 # Steps
-- Write announcement blog post
-- Publish GitHub release
-- Post on Product Hunt
-- Share LinkedIn thread
+- Write announcement blog post [tag: content, marketing]
+- Publish GitHub release [tag: deploy] [verify: github_release_created]
+- Post on Product Hunt (after: publish_github_release) [tag: marketing]
+- Share LinkedIn thread (after: write_announcement_blog_post) [tag: marketing]
 
 # Constraints
 - No spending above $500
-- All external posts require human review
+- All external posts require human review [type: approval]
 - No access to production database
 ```
 
@@ -112,7 +117,10 @@ world: ai_safety_policy
 3. Parse `# Constraints` section — each `- ` line becomes a `PlanConstraint`
 4. Support optional step dependencies via `(after: step_id)` suffix
 5. Support optional tool restrictions via `[tools: http, shell]` suffix
-6. Validate: at least one step, plan_id required
+6. Support optional tags via `[tag: deploy, marketing]` suffix — helps map actions to steps semantically
+7. Support optional verification via `[verify: condition_name]` suffix — helps detect step completion
+8. Support `[type: approval]` on constraints — always returns PAUSE until human confirms
+9. Validate: at least one step, plan_id required
 
 **Key decision:** No AI needed. This is pure parsing like bootstrap-parser.
 
@@ -135,10 +143,20 @@ function evaluatePlan(
 
 1. **Check plan expiry** — If `expires_at` is past, return PLAN_COMPLETE
 2. **Check completion** — If all steps are completed, return PLAN_COMPLETE
-3. **Match action to step** — Use keyword matching (same strategy as guard engine) to find which step the action belongs to
+3. **Match action to step** — Two-tier matching strategy:
+   - **Tier 1: Keyword + tag matching** — Fast, deterministic. Match action intent against step labels, descriptions, and tags. Same strategy as guard engine.
+   - **Tier 2: Intent similarity scoring** — If no keyword match, compute semantic similarity using precomputed embeddings. Cosine similarity above threshold (default 0.75) = match. No LLM required — uses static vectors generated at `plan compile` time.
+   - If no match found, identify the **closest step** (highest similarity score) and include it in the OFF_PLAN verdict for agent self-correction.
 4. **Check sequence** — If `sequential: true`, verify all `requires` dependencies are completed
-5. **Check constraints** — Evaluate each constraint against the event
-6. **No match = OFF_PLAN** — If the action doesn't match any step, BLOCK or PAUSE based on plan config
+5. **Check constraints** — Evaluate each constraint against the event. `approval` type constraints always return PAUSE.
+6. **No match = OFF_PLAN** — Return BLOCK with closest step info:
+   ```
+   OFF_PLAN
+     Action: run ad campaign
+     Matched step: none
+     Closest step: - Publish GitHub release (similarity: 0.32)
+   ```
+   This helps agents self-correct without human intervention.
 
 The evaluator also exposes:
 
@@ -156,23 +174,29 @@ function getPlanProgress(plan: PlanDefinition): PlanProgress
 
 ### Edit: `src/engine/guard-engine.ts`
 
-Add plan as a new evaluation phase. Insert between Phase 2 (role rules) and Phase 3 (declarative guards):
+Add plan as a new evaluation phase. Plan enforcement runs **before** role rules — plans define task scope, so if an action is off-plan, we should stop before evaluating deeper rules. This avoids burning cycles on irrelevant governance.
 
 ```
 Phase 0:   Invariant coverage (health metric)
 Phase 0.5: Session allowlist
 Phase 1:   Safety checks (prompt injection, scope escape)
+Phase 1.5: ★ PLAN ENFORCEMENT (new) ★
 Phase 2:   Role rules
-Phase 2.5: ★ PLAN ENFORCEMENT (new) ★
 Phase 3:   Declarative guards
 Phase 4:   Kernel rules
 Phase 5:   Level constraints
 Phase 6:   Default ALLOW
 ```
 
+**Evaluation order rationale:**
+```
+Safety → Plan → Roles → Guards → Kernel
+```
+Plans define *what* should happen. Roles define *who* may do it. Guards define *how* it must be done. This ordering means off-plan actions are rejected early, before any role or guard evaluation occurs.
+
 **How it works:**
 - `GuardEngineOptions` gets a new optional `plan?: PlanDefinition` field
-- If a plan is present, Phase 2.5 runs `evaluatePlan()` on the event
+- If a plan is present, Phase 1.5 runs `evaluatePlan()` on the event
 - OFF_PLAN → BLOCK (action not in the plan)
 - CONSTRAINT_VIOLATED → PAUSE (needs human decision)
 - ON_PLAN → continue to next phases (world guards still apply)
@@ -180,9 +204,9 @@ Phase 6:   Default ALLOW
 
 **The layering:**
 - Safety checks still run first (country laws)
-- Role rules still run (driving laws)
-- Plan enforcement runs next (mom's rules)
-- World guards still run after (domain governance)
+- Plan enforcement runs next (mom's rules — scoping the task)
+- Role rules still run (driving laws — who can do what)
+- World guards still run after (domain governance — how it must be done)
 
 A plan can only make things stricter, never looser. An action must pass ALL layers.
 
@@ -210,7 +234,7 @@ interface PlanCheck {
 }
 ```
 
-Add `'plan-enforcement'` to the precedence chain order.
+Add `'plan-enforcement'` to the precedence chain order (after safety, before roles).
 
 ---
 
@@ -218,10 +242,10 @@ Add `'plan-enforcement'` to the precedence chain order.
 
 ### New file: `src/cli/plan.ts`
 
-Three subcommands:
+Five subcommands:
 
 ```bash
-# Compile a plan from markdown
+# Compile a plan from markdown (generates embeddings for intent matching)
 neuroverse plan compile <plan.md> [--output plan.json]
 
 # Check an action against a plan
@@ -229,25 +253,49 @@ echo '{"intent":"write blog post"}' | neuroverse plan check --plan plan.json [--
 
 # Show plan progress
 neuroverse plan status --plan plan.json
+
+# Mark a step as completed
+neuroverse plan advance <step_id> --plan plan.json
+
+# Derive a full world from a plan (plan → world generator)
+neuroverse plan derive <plan.md> [--output ./world/]
 ```
 
 **`plan compile`:**
 1. Read plan markdown
 2. Parse with plan-parser
-3. Write `plan.json`
-4. Print summary (steps, constraints, estimated scope)
+3. Generate intent embeddings for each step (precomputed vectors for similarity matching)
+4. Write `plan.json`
+5. Print summary (steps, constraints, estimated scope)
 
 **`plan check`:**
 1. Load plan.json
 2. Optionally load world
 3. Read GuardEvent from stdin
 4. Run evaluatePlan() — and if world is provided, run full evaluateGuard() with plan overlay
-5. Write PlanVerdict to stdout
+5. Write PlanVerdict to stdout (including closest step if OFF_PLAN)
 6. Exit with plan-appropriate code
 
 **`plan status`:**
 1. Load plan.json
-2. Print progress table (step, status, dependencies)
+2. Print progress table (step, status, dependencies, tags, verification)
+
+**`plan advance`:**
+1. Load plan.json
+2. Mark specified step as completed
+3. Check if verification condition is met (if `verify` is defined)
+4. Write updated plan.json
+5. Print updated progress
+
+**`plan derive`:**
+1. Load plan markdown
+2. Generate a full world definition from the plan:
+   - Each step becomes a guarded action
+   - Each constraint becomes an invariant or guard
+   - Tags become role scopes
+   - Verification conditions become outcome definitions
+3. Write world files to output directory
+4. This uses the existing `derive` engine — plans become world generators
 
 ### Edit: `src/cli/neuroverse.ts`
 
@@ -319,8 +367,11 @@ const verdict = evaluateGuard(event, world, { plan });
 // Plan rules AND world rules both apply
 
 ## Available Commands
-neuroverse plan compile <plan.md>     — Parse plan markdown into plan.json
+neuroverse plan compile <plan.md>      — Parse plan markdown into plan.json (with embeddings)
 neuroverse plan check --plan plan.json — Check action against plan (stdin)
+neuroverse plan status --plan plan.json — Show plan progress
+neuroverse plan advance <step_id>      — Mark a step as completed
+neuroverse plan derive <plan.md>       — Generate a full world from a plan
 neuroverse guard --world <dir>         — Check action against world (stdin)
 
 ## Adapters
@@ -408,22 +459,37 @@ Test cases:
 - Parse valid plan markdown with steps and constraints
 - Parse plan with dependencies (`after: step_id`)
 - Parse plan with tool restrictions
+- Parse plan with tags (`[tag: deploy, marketing]`)
+- Parse plan with verification conditions (`[verify: condition_name]`)
+- Parse constraints with approval type (`[type: approval]`)
 - Reject plan with no steps
 - Reject plan with no plan_id
 
 **Plan evaluation:**
-- Action matching a step → ON_PLAN
-- Action not matching any step → OFF_PLAN
+- Action matching a step via keyword → ON_PLAN
+- Action matching a step via tag → ON_PLAN
+- Action matching a step via intent similarity (above threshold) → ON_PLAN
+- Action not matching any step → OFF_PLAN with closest step info
+- OFF_PLAN verdict includes similarity score and closest step label
 - Sequential plan: action allowed when dependencies met
 - Sequential plan: action blocked when dependencies not met
 - Constraint violation → CONSTRAINT_VIOLATED
+- Approval constraint → always PAUSE
 - All steps completed → PLAN_COMPLETE
 - Expired plan → PLAN_COMPLETE
 
+**Plan advance:**
+- Advance step marks it as completed
+- Advance step with verify condition checks the condition
+- Advance step updates progress stats
+- Advance step triggers onPlanComplete when all done
+
 **Guard engine integration:**
+- Plan runs at Phase 1.5 (after safety, before roles)
 - Plan + world: both must pass for ALLOW
 - Plan blocks even if world allows
 - World blocks even if plan allows
+- Off-plan action rejected before role evaluation occurs
 - No plan provided: engine works as before (backward compatible)
 - Plan trace appears in EvaluationTrace
 
@@ -455,7 +521,7 @@ Test cases:
 | NEW | `test/plan.test.ts` |
 | NEW | `AGENTS.md` |
 | NEW | `.well-known/ai-plugin.json` |
-| EDIT | `src/engine/guard-engine.ts` (add Phase 2.5) |
+| EDIT | `src/engine/guard-engine.ts` (add Phase 1.5) |
 | EDIT | `src/contracts/guard-contract.ts` (add plan to options + trace) |
 | EDIT | `src/adapters/openclaw.ts` (plan-aware hooks) |
 | EDIT | `src/adapters/openai.ts` (plan-aware executor) |
@@ -479,3 +545,37 @@ Test cases:
 5. **Agent-first design.** The plan markdown format is simple enough for any LLM to generate. The `AGENTS.md` and `ai-plugin.json` files make the package discoverable. The programmatic API is one function call.
 
 6. **Plans can only restrict, never expand.** A plan cannot override a world BLOCK. It can only add additional constraints. This matches the analogy: mom's rules can be stricter than the law, but never looser.
+
+7. **Intent similarity over keyword matching.** Agents phrase things differently. Instead of brittle keyword matching alone, we precompute embeddings at compile time and use cosine similarity at runtime. No LLM in the loop — just vectors.
+
+8. **Plan enforcement runs early.** Plans define task scope. If an action is off-plan, we reject it before evaluating roles, guards, or kernel rules. This is both faster and semantically correct.
+
+---
+
+## Future Vision: Three-Layer Governance
+
+Plans as temporary governance worlds leads to a deeper architecture:
+
+```
+┌─────────────────────────────────────────┐
+│  Layer 1: WORLDS                        │
+│  Permanent governance. Domain rules.    │
+│  Lives in the repo. Evolves slowly.     │
+├─────────────────────────────────────────┤
+│  Layer 2: PLANS                         │
+│  Temporary governance. Task scope.      │
+│  Created per-task. Expires on complete. │
+├─────────────────────────────────────────┤
+│  Layer 3: SESSIONS                      │
+│  Ephemeral governance. Runtime state.   │
+│  Created per-execution. Dies on exit.   │
+└─────────────────────────────────────────┘
+```
+
+**Worlds** are the constitutional layer — they define what is always true.
+**Plans** are the legislative layer — they define what should happen now.
+**Sessions** are the executive layer — they track what is actually happening.
+
+This three-layer model (worlds → plans → sessions) gives NeuroVerse a governance architecture that almost nobody in the AI ecosystem has yet. Each layer narrows the one above it. Each layer has its own lifecycle. Together they provide complete governance from permanent rules down to individual execution traces.
+
+This is the long-term trajectory. The current implementation covers Layers 1 and 2. Layer 3 (sessions) is a natural future extension.
