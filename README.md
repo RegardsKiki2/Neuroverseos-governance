@@ -109,7 +109,7 @@ Returns ALLOW, BLOCK, or PAUSE. No network calls. No async. Pure function.
 
 ---
 
-## The "Oh Shit" Moment
+## The Moment Governance Matters
 
 Your AI agent decides to clean up the production database:
 
