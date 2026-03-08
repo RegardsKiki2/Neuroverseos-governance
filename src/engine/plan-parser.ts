@@ -5,7 +5,7 @@
  * No AI needed. This is pure parsing like bootstrap-parser.
  *
  * Supported syntax:
- *   - YAML frontmatter: plan_id, objective, sequential, budget, expires, world
+ *   - YAML frontmatter: plan_id, objective, sequential, completion, budget, expires, world
  *   - # Steps section: each `- ` line becomes a PlanStep
  *   - # Constraints section: each `- ` line becomes a PlanConstraint
  *   - Step dependencies: (after: step_id)
@@ -15,7 +15,7 @@
  *   - Approval constraints: [type: approval]
  */
 
-import type { PlanDefinition, PlanStep, PlanConstraint } from '../contracts/plan-contract';
+import type { PlanDefinition, PlanStep, PlanConstraint, PlanCompletionMode } from '../contracts/plan-contract';
 
 // ─── Slug Generation ────────────────────────────────────────────────────────
 
@@ -234,10 +234,16 @@ export function parsePlanMarkdown(markdown: string): PlanParseResult {
     expires_at = new Date(frontmatter.expires).toISOString();
   }
 
+  // Parse completion mode (default: trust)
+  const completionRaw = frontmatter.completion?.toLowerCase();
+  const completion: PlanCompletionMode =
+    completionRaw === 'verified' ? 'verified' : 'trust';
+
   const plan: PlanDefinition = {
     plan_id: frontmatter.plan_id,
     objective: frontmatter.objective ?? '',
     sequential: frontmatter.sequential === 'true',
+    completion,
     steps,
     constraints,
     world_id: frontmatter.world ?? undefined,

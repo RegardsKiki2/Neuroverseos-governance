@@ -24,6 +24,8 @@ import type {
   PlanVerdict,
   PlanProgress,
   PlanCheck,
+  StepEvidence,
+  AdvanceResult,
 } from '../contracts/plan-contract';
 
 // ─── Keyword Matching ───────────────────────────────────────────────────────
@@ -210,13 +212,67 @@ export function getPlanProgress(plan: PlanDefinition): PlanProgress {
 /**
  * Mark a step as completed and return a new plan.
  * Does not mutate the original plan.
+ *
+ * Behavior depends on the plan's completion mode:
+ *
+ *   completion: 'trust' (default)
+ *     Caller says "done", step advances. No evidence needed.
+ *
+ *   completion: 'verified'
+ *     Steps with a `verify` field require evidence to advance.
+ *     The evidence type must match the step's verify field.
+ *     Steps without `verify` still advance on trust.
+ *
+ * @param plan     - The current plan (not mutated)
+ * @param stepId   - Which step to advance
+ * @param evidence - Proof of completion (required in verified mode for steps with verify)
+ * @returns AdvanceResult with success flag and updated plan or reason
  */
-export function advancePlan(plan: PlanDefinition, stepId: string): PlanDefinition {
-  return {
+export function advancePlan(
+  plan: PlanDefinition,
+  stepId: string,
+  evidence?: StepEvidence,
+): AdvanceResult {
+  const step = plan.steps.find(s => s.id === stepId);
+
+  if (!step) {
+    return { success: false, reason: `Step "${stepId}" not found in plan.` };
+  }
+
+  if (step.status === 'completed') {
+    return { success: false, reason: `Step "${stepId}" is already completed.` };
+  }
+
+  // In verified mode, steps with a `verify` field require evidence
+  const mode = plan.completion ?? 'trust';
+
+  if (mode === 'verified' && step.verify) {
+    if (!evidence) {
+      return {
+        success: false,
+        reason: `Step "${step.label}" requires evidence (verify: ${step.verify}). Provide evidence to advance.`,
+      };
+    }
+
+    if (evidence.type !== step.verify) {
+      return {
+        success: false,
+        reason: `Evidence type "${evidence.type}" does not match required verification "${step.verify}".`,
+      };
+    }
+  }
+
+  const updatedPlan: PlanDefinition = {
     ...plan,
     steps: plan.steps.map(s =>
       s.id === stepId ? { ...s, status: 'completed' as const } : s,
     ),
+  };
+
+  return {
+    success: true,
+    plan: updatedPlan,
+    evidence: evidence ?? undefined,
   };
 }
 

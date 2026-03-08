@@ -196,8 +196,11 @@ export class SessionManager {
     if (this.state.plan) {
       const planVerdict = evaluatePlan(event, this.state.plan);
       if (planVerdict.matchedStep) {
-        this.state.plan = advancePlan(this.state.plan, planVerdict.matchedStep);
-        this.engineOptions.plan = this.state.plan;
+        const advResult = advancePlan(this.state.plan, planVerdict.matchedStep);
+        if (advResult.success && advResult.plan) {
+          this.state.plan = advResult.plan;
+          this.engineOptions.plan = this.state.plan;
+        }
         this.state.progress = getPlanProgress(this.state.plan);
         this.config.onPlanProgress?.(this.state.progress);
 

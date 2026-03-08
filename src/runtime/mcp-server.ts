@@ -528,8 +528,11 @@ export class McpGovernanceServer {
     if (this.plan) {
       const planVerdict = evaluatePlan(event, this.plan);
       if (planVerdict.matchedStep) {
-        this.plan = advancePlan(this.plan, planVerdict.matchedStep);
-        this.engineOptions.plan = this.plan;
+        const advResult = advancePlan(this.plan, planVerdict.matchedStep);
+        if (advResult.success && advResult.plan) {
+          this.plan = advResult.plan;
+          this.engineOptions.plan = this.plan;
+        }
         const progress = getPlanProgress(this.plan);
         process.stderr.write(
           `[neuroverse-mcp] Plan: ${progress.completed}/${progress.total} (${progress.percentage}%)\n`,
@@ -705,7 +708,11 @@ export class McpGovernanceServer {
       return { content: [{ type: 'text', text: `Step "${stepId}" is already completed.` }] };
     }
 
-    this.plan = advancePlan(this.plan, stepId);
+    const advResult = advancePlan(this.plan, stepId);
+    if (!advResult.success) {
+      return { content: [{ type: 'text', text: `Cannot advance: ${advResult.reason}` }] };
+    }
+    this.plan = advResult.plan!;
     this.engineOptions.plan = this.plan;
     const progress = getPlanProgress(this.plan);
 

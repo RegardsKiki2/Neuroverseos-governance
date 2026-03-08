@@ -67,6 +67,48 @@ export interface PlanConstraint {
   trigger?: string;
 }
 
+// ─── Completion Mode ───────────────────────────────────────────────────────
+
+/**
+ * How step completion is determined:
+ *   - 'trust'    — caller asserts completion, plan advances (default)
+ *   - 'verified' — steps with a `verify` field require evidence to advance;
+ *                   steps without `verify` still advance on trust
+ */
+export type PlanCompletionMode = 'trust' | 'verified';
+
+/**
+ * Evidence provided when advancing a step in verified mode.
+ * The verifier checks that evidence.type matches step.verify.
+ */
+export interface StepEvidence {
+  /** Evidence type — must match the step's `verify` field. */
+  type: string;
+
+  /** Proof payload (URL, hash, output snippet, etc.). */
+  proof: string;
+
+  /** When the evidence was produced. */
+  timestamp?: string;
+}
+
+/**
+ * Result of attempting to advance a step.
+ */
+export interface AdvanceResult {
+  /** Whether the step was successfully advanced. */
+  success: boolean;
+
+  /** Updated plan (if success). */
+  plan?: PlanDefinition;
+
+  /** Why advancement failed (if !success). */
+  reason?: string;
+
+  /** The evidence that was accepted (if verified mode). */
+  evidence?: StepEvidence;
+}
+
 // ─── Plan Definition ────────────────────────────────────────────────────────
 
 export interface PlanDefinition {
@@ -78,6 +120,13 @@ export interface PlanDefinition {
 
   /** Whether steps must run in order. */
   sequential: boolean;
+
+  /**
+   * How step completion is determined.
+   *   - 'trust' (default) — caller asserts "done", plan advances
+   *   - 'verified' — steps with `verify` require evidence to advance
+   */
+  completion: PlanCompletionMode;
 
   /** The steps in this plan. */
   steps: PlanStep[];

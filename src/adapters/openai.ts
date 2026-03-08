@@ -150,8 +150,11 @@ export class GovernedToolExecutor {
     if (verdict.status === 'ALLOW' && this.activePlan) {
       const planVerdict = evaluatePlan(event, this.activePlan);
       if (planVerdict.matchedStep) {
-        this.activePlan = advancePlan(this.activePlan, planVerdict.matchedStep);
-        this.engineOptions.plan = this.activePlan;
+        const advResult = advancePlan(this.activePlan, planVerdict.matchedStep);
+        if (advResult.success && advResult.plan) {
+          this.activePlan = advResult.plan;
+          this.engineOptions.plan = this.activePlan;
+        }
         const progress = getPlanProgress(this.activePlan);
         this.options.onPlanProgress?.(progress);
         if (progress.completed === progress.total) {

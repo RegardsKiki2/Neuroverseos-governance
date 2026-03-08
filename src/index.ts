@@ -51,6 +51,9 @@ export type {
   PlanProgress,
   PlanCheck,
   PlanExitCode,
+  PlanCompletionMode,
+  StepEvidence,
+  AdvanceResult,
 } from './contracts/plan-contract';
 
 export { PLAN_EXIT_CODES } from './contracts/plan-contract';

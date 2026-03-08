@@ -274,9 +274,10 @@ describe('Sequential Plan Evaluation', () => {
   });
 
   it('allows step when dependencies are met', () => {
-    const advanced = advancePlan(plan, 'run_unit_tests');
+    const result = advancePlan(plan, 'run_unit_tests');
+    expect(result.success).toBe(true);
     const event: GuardEvent = { intent: 'build Docker image' };
-    const verdict = evaluatePlan(event, advanced);
+    const verdict = evaluatePlan(event, result.plan!);
     expect(verdict.status).toBe('ON_PLAN');
     expect(verdict.allowed).toBe(true);
   });
@@ -293,20 +294,21 @@ describe('Plan Advancement', () => {
   });
 
   it('marks step as completed', () => {
-    const updated = advancePlan(plan, 'write_announcement_blog_post');
-    const step = updated.steps.find(s => s.id === 'write_announcement_blog_post');
+    const result = advancePlan(plan, 'write_announcement_blog_post');
+    expect(result.success).toBe(true);
+    const step = result.plan!.steps.find(s => s.id === 'write_announcement_blog_post');
     expect(step?.status).toBe('completed');
   });
 
   it('does not mutate original plan', () => {
-    const updated = advancePlan(plan, 'write_announcement_blog_post');
+    const result = advancePlan(plan, 'write_announcement_blog_post');
     expect(plan.steps.find(s => s.id === 'write_announcement_blog_post')?.status).toBe('pending');
-    expect(updated.steps.find(s => s.id === 'write_announcement_blog_post')?.status).toBe('completed');
+    expect(result.plan!.steps.find(s => s.id === 'write_announcement_blog_post')?.status).toBe('completed');
   });
 
   it('updates progress correctly', () => {
-    const updated = advancePlan(plan, 'write_announcement_blog_post');
-    const progress = getPlanProgress(updated);
+    const result = advancePlan(plan, 'write_announcement_blog_post');
+    const progress = getPlanProgress(result.plan!);
     expect(progress.completed).toBe(1);
     expect(progress.total).toBe(4);
     expect(progress.percentage).toBe(25);
@@ -315,11 +317,115 @@ describe('Plan Advancement', () => {
   it('reports 100% when all steps completed', () => {
     let p = plan;
     for (const step of plan.steps) {
-      p = advancePlan(p, step.id);
+      const result = advancePlan(p, step.id);
+      expect(result.success).toBe(true);
+      p = result.plan!;
     }
     const progress = getPlanProgress(p);
     expect(progress.completed).toBe(4);
     expect(progress.percentage).toBe(100);
+  });
+
+  it('rejects advancing nonexistent step', () => {
+    const result = advancePlan(plan, 'nonexistent_step');
+    expect(result.success).toBe(false);
+    expect(result.reason).toContain('not found');
+  });
+
+  it('rejects advancing already-completed step', () => {
+    const first = advancePlan(plan, 'write_announcement_blog_post');
+    const second = advancePlan(first.plan!, 'write_announcement_blog_post');
+    expect(second.success).toBe(false);
+    expect(second.reason).toContain('already completed');
+  });
+});
+
+// ─── Verified Completion Mode ─────────────────────────────────────────────
+
+const VERIFIED_PLAN_MARKDOWN = `
+---
+plan_id: verified_launch
+objective: Launch with proof
+completion: verified
+sequential: false
+---
+
+# Steps
+- Write blog post [tag: content]
+- Publish GitHub release [tag: deploy] [verify: github_release_created]
+- Send announcement email [tag: marketing]
+`;
+
+describe('Verified Completion Mode', () => {
+  let plan: PlanDefinition;
+
+  beforeEach(() => {
+    const result = parsePlanMarkdown(VERIFIED_PLAN_MARKDOWN);
+    expect(result.success).toBe(true);
+    plan = result.plan!;
+  });
+
+  it('parses completion mode from frontmatter', () => {
+    expect(plan.completion).toBe('verified');
+  });
+
+  it('defaults to trust when not specified', () => {
+    const result = parsePlanMarkdown(PLAN_MARKDOWN);
+    expect(result.plan!.completion).toBe('trust');
+  });
+
+  it('allows advancing step without verify field (no evidence needed)', () => {
+    const result = advancePlan(plan, 'write_blog_post');
+    expect(result.success).toBe(true);
+    expect(result.plan!.steps.find(s => s.id === 'write_blog_post')?.status).toBe('completed');
+  });
+
+  it('blocks advancing step with verify field when no evidence provided', () => {
+    const result = advancePlan(plan, 'publish_github_release');
+    expect(result.success).toBe(false);
+    expect(result.reason).toContain('requires evidence');
+    expect(result.reason).toContain('github_release_created');
+  });
+
+  it('blocks advancing step when evidence type does not match', () => {
+    const result = advancePlan(plan, 'publish_github_release', {
+      type: 'wrong_type',
+      proof: 'https://github.com/org/repo/releases/v1.0',
+    });
+    expect(result.success).toBe(false);
+    expect(result.reason).toContain('does not match');
+  });
+
+  it('allows advancing step with matching evidence', () => {
+    const result = advancePlan(plan, 'publish_github_release', {
+      type: 'github_release_created',
+      proof: 'https://github.com/org/repo/releases/v1.0',
+    });
+    expect(result.success).toBe(true);
+    expect(result.plan!.steps.find(s => s.id === 'publish_github_release')?.status).toBe('completed');
+    expect(result.evidence?.type).toBe('github_release_created');
+  });
+
+  it('returns evidence in result when provided', () => {
+    const result = advancePlan(plan, 'publish_github_release', {
+      type: 'github_release_created',
+      proof: 'https://github.com/org/repo/releases/v1.0',
+      timestamp: '2026-01-01T00:00:00Z',
+    });
+    expect(result.success).toBe(true);
+    expect(result.evidence).toEqual({
+      type: 'github_release_created',
+      proof: 'https://github.com/org/repo/releases/v1.0',
+      timestamp: '2026-01-01T00:00:00Z',
+    });
+  });
+
+  it('in trust mode, verify field is ignored (no evidence needed)', () => {
+    const trustResult = parsePlanMarkdown(PLAN_MARKDOWN);
+    const trustPlan = trustResult.plan!;
+    // This plan has [verify: github_release_created] on "Publish GitHub release"
+    const result = advancePlan(trustPlan, 'publish_github_release');
+    expect(result.success).toBe(true);
   });
 });
 

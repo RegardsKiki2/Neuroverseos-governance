@@ -80,6 +80,7 @@ async function compileCommand(args: string[]): Promise<void> {
   process.stdout.write(`  Steps: ${plan.steps.length}\n`);
   process.stdout.write(`  Constraints: ${plan.constraints.length}\n`);
   process.stdout.write(`  Sequential: ${plan.sequential}\n`);
+  process.stdout.write(`  Completion: ${plan.completion}\n`);
   if (plan.world_id) process.stdout.write(`  World: ${plan.world_id}\n`);
   if (plan.expires_at) process.stdout.write(`  Expires: ${plan.expires_at}\n`);
   process.stdout.write(`  Output: ${outputPath}\n`);
@@ -165,6 +166,7 @@ async function statusCommand(args: string[]): Promise<void> {
 
   process.stdout.write(`Plan: ${plan.plan_id}\n`);
   process.stdout.write(`Objective: ${plan.objective}\n`);
+  process.stdout.write(`Completion: ${plan.completion ?? 'trust'}\n`);
   process.stdout.write(`Progress: ${progress.completed}/${progress.total} (${progress.percentage}%)\n`);
   process.stdout.write(`\nSteps:\n`);
 
@@ -195,7 +197,7 @@ async function advanceCommand(args: string[]): Promise<void> {
   const planPath = parseArg(args, '--plan');
 
   if (!stepId || !planPath) {
-    process.stderr.write('Usage: neuroverse plan advance <step_id> --plan plan.json\n');
+    process.stderr.write('Usage: neuroverse plan advance <step_id> --plan plan.json [--evidence <type> --proof <proof>]\n');
     process.exit(PLAN_EXIT_CODES.ERROR);
     return;
   }
@@ -209,24 +211,39 @@ async function advanceCommand(args: string[]): Promise<void> {
     return;
   }
 
-  const step = plan.steps.find(s => s.id === stepId);
-  if (!step) {
-    process.stderr.write(`Error: step "${stepId}" not found in plan.\n`);
-    process.stderr.write(`Available steps: ${plan.steps.map(s => s.id).join(', ')}\n`);
+  // Build evidence if provided
+  const evidenceType = parseArg(args, '--evidence');
+  const evidenceProof = parseArg(args, '--proof');
+  let evidence: import('../contracts/plan-contract').StepEvidence | undefined;
+
+  if (evidenceType && evidenceProof) {
+    evidence = {
+      type: evidenceType,
+      proof: evidenceProof,
+      timestamp: new Date().toISOString(),
+    };
+  } else if (evidenceType || evidenceProof) {
+    process.stderr.write('Error: --evidence and --proof must both be provided.\n');
     process.exit(PLAN_EXIT_CODES.ERROR);
     return;
   }
 
-  if (step.status === 'completed') {
-    process.stdout.write(`Step "${stepId}" is already completed.\n`);
+  const result = advancePlan(plan, stepId, evidence);
+
+  if (!result.success) {
+    process.stderr.write(`Error: ${result.reason}\n`);
+    process.exit(PLAN_EXIT_CODES.ERROR);
     return;
   }
 
-  const updated = advancePlan(plan, stepId);
-  writeFileSync(planPath, JSON.stringify(updated, null, 2) + '\n');
+  writeFileSync(planPath, JSON.stringify(result.plan, null, 2) + '\n');
 
-  const progress = getPlanProgress(updated);
+  const progress = getPlanProgress(result.plan!);
+  const step = plan.steps.find(s => s.id === stepId)!;
   process.stdout.write(`Step completed: ${step.label}\n`);
+  if (result.evidence) {
+    process.stdout.write(`Evidence: ${result.evidence.type} = ${result.evidence.proof}\n`);
+  }
   process.stdout.write(`Progress: ${progress.completed}/${progress.total} (${progress.percentage}%)\n`);
 
   if (progress.completed === progress.total) {
