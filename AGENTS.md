@@ -87,6 +87,7 @@ Plans are written in simple markdown that any LLM can produce:
 plan_id: product_launch
 objective: Launch the NeuroVerse governance plugin
 sequential: false
+completion: verified
 ---
 
 # Steps
@@ -97,6 +98,28 @@ sequential: false
 # Constraints
 - No spending above $500
 - All external posts require human review [type: approval]
+```
+
+### Completion modes
+
+- `completion: trust` (default) — caller says "done", step advances
+- `completion: verified` — steps with `[verify: ...]` require evidence to advance
+
+```javascript
+// Trust mode — just advance
+const result = advancePlan(plan, 'write_announcement_blog_post');
+// → { success: true, plan: <updated> }
+
+// Verified mode — evidence required for steps with verify
+const result = advancePlan(plan, 'publish_github_release', {
+  type: 'github_release_created',
+  proof: 'https://github.com/org/repo/releases/v1.0',
+});
+// → { success: true, plan: <updated>, evidence: { ... } }
+
+// Verified mode — missing evidence
+const result = advancePlan(plan, 'publish_github_release');
+// → { success: false, reason: 'Step requires evidence (verify: github_release_created)' }
 ```
 
 ## Governance Model

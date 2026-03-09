@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "server": {
+    "name": "neuroverse-governance",
+    "version": "0.2.2",
+    "description": "Deterministic governance engine for AI agents. Evaluates actions against world rules and plan constraints. Returns ALLOW, BLOCK, or PAUSE verdicts.",
+    "vendor": "NeuroverseOS",
+    "homepage": "https://neuroverseos.com",
+    "repository": "https://github.com/NeuroverseOS/Neuroverseos-governance"
+  },
+  "install": {
+    "npm": "@neuroverseos/governance",
+    "command": "npx @neuroverseos/governance mcp --world ./world"
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": false,
+    "prompts": false
+  },
+  "tools": [
+    {
+      "name": "neuroverse_guard",
+      "description": "Evaluate whether an agent action is allowed by governance rules. Returns ALLOW, BLOCK, or PAUSE.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["intent"],
+        "properties": {
+          "intent": { "type": "string", "description": "What the agent wants to do" },
+          "tool": { "type": "string", "description": "Tool being invoked" },
+          "scope": { "type": "string", "description": "Resource being accessed" }
+        }
+      }
+    },
+    {
+      "name": "neuroverse_plan_check",
+      "description": "Check whether an action matches a step in the active plan. Returns ON_PLAN, OFF_PLAN, CONSTRAINT_VIOLATED, or PLAN_COMPLETE.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["intent"],
+        "properties": {
+          "intent": { "type": "string", "description": "What the agent wants to do" }
+        }
+      }
+    },
+    {
+      "name": "neuroverse_plan_advance",
+      "description": "Mark a plan step as completed. In verified mode, requires evidence for steps with a verify field.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["stepId"],
+        "properties": {
+          "stepId": { "type": "string", "description": "Step ID to advance" },
+          "evidenceType": { "type": "string", "description": "Evidence type (must match step verify field)" },
+          "evidenceProof": { "type": "string", "description": "Proof payload (URL, hash, etc.)" }
+        }
+      }
+    },
+    {
+      "name": "neuroverse_plan_status",
+      "description": "Get current plan progress — completed steps, total steps, percentage.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ],
+  "tags": ["governance", "ai-safety", "agent-guardrails", "deterministic", "plan-enforcement"]
+}

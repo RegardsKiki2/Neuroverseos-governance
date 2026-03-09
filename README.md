@@ -481,8 +481,19 @@ Zero runtime dependencies. Pure TypeScript. Node.js 18+.
 
 This package includes machine-readable manifests for agent ecosystems:
 
-- **`AGENTS.md`** — Agent-discoverable integration guide
-- **`.well-known/ai-plugin.json`** — Standard capability manifest
+| File | Purpose | Who reads it |
+|------|---------|-------------|
+| **`AGENTS.md`** | Integration guide for coding agents | Claude Code, Cursor, Windsurf |
+| **`llms.txt`** | Package description for any LLM | Any LLM browsing the web or repo |
+| **`.well-known/ai-plugin.json`** | Capability manifest | ChatGPT plugins, OpenAI ecosystem |
+| **`.well-known/mcp.json`** | MCP server registry manifest | MCP clients, tool registries |
+| **`openapi.yaml`** | OpenAPI 3.1 spec for the HTTP API | AutoGPT, CrewAI, API-aware agents |
+
+### GitHub Topics
+
+Add these topics to the GitHub repo for search discovery:
+
+`ai-governance` `ai-safety` `mcp-server` `agent-guardrails` `deterministic` `plan-enforcement` `model-context-protocol` `ai-agents`
 
 ## License
 

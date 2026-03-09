@@ -1,0 +1,79 @@
+# NeuroVerse Governance
+
+> Deterministic runtime governance for AI agents. No LLM in the evaluation loop.
+
+## What it does
+
+NeuroVerse enforces behavioral boundaries on AI agents. Every agent action passes
+through a 6-phase evaluation pipeline and receives an ALLOW, BLOCK, or PAUSE verdict.
+Same event + same rules = same verdict, every time.
+
+## Core concepts
+
+- **World**: Permanent governance rules (guards, invariants, kernel rules, roles)
+- **Plan**: Temporary task-scoped constraints layered on top of a world
+- **Guard event**: An action an agent wants to take (intent, tool, scope)
+- **Verdict**: ALLOW, BLOCK, or PAUSE — returned synchronously, no network calls
+
+## Install
+
+```bash
+npm install @neuroverseos/governance
+```
+
+## Quick test (no install required)
+
+```bash
+npx @neuroverseos/governance init
+npx @neuroverseos/governance build
+npx @neuroverseos/governance guard
+```
+
+## Programmatic usage
+
+```javascript
+import { evaluateGuard, loadWorld } from '@neuroverseos/governance';
+
+const world = await loadWorld('./world/');
+const verdict = evaluateGuard({ intent: 'delete user data', tool: 'database' }, world);
+// → { status: 'BLOCK', reason: 'Destructive database operation on protected resource' }
+```
+
+## Plan enforcement
+
+```javascript
+import { parsePlanMarkdown, evaluatePlan, advancePlan } from '@neuroverseos/governance';
+
+const { plan } = parsePlanMarkdown(markdown);
+const verdict = evaluatePlan({ intent: 'write blog post' }, plan);
+// → { status: 'ON_PLAN', matchedStep: 'write_announcement_blog_post' }
+
+const result = advancePlan(plan, 'write_announcement_blog_post');
+// → { success: true, plan: <updated> }
+```
+
+Plans support two completion modes:
+- `completion: trust` (default) — caller says "done", step advances
+- `completion: verified` — steps with `[verify: ...]` require evidence to advance
+
+## Adapters
+
+- OpenAI function calling: `@neuroverseos/governance/adapters/openai`
+- LangChain callback handler: `@neuroverseos/governance/adapters/langchain`
+- OpenClaw plugin: `@neuroverseos/governance/adapters/openclaw`
+- Express/Fastify middleware: `@neuroverseos/governance/adapters/express`
+- MCP server: `neuroverse mcp --world ./world`
+
+## Evaluation pipeline
+
+```
+Safety → Plan → Roles → Guards → Kernel → Level → Verdict
+```
+
+First BLOCK wins. No async. Pure function.
+
+## Links
+
+- npm: https://www.npmjs.com/package/@neuroverseos/governance
+- GitHub: https://github.com/NeuroverseOS/Neuroverseos-governance
+- Website: https://neuroverseos.com

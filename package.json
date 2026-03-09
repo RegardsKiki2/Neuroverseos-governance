@@ -51,7 +51,11 @@
     "dist",
     "dist/worlds",
     "LICENSE.md",
-    "README.md"
+    "README.md",
+    "AGENTS.md",
+    "llms.txt",
+    "openapi.yaml",
+    ".well-known"
   ],
   "scripts": {
     "build": "tsup src/index.ts src/cli/neuroverse.ts src/cli/plan.ts src/cli/run.ts src/adapters/index.ts src/adapters/langchain.ts src/adapters/openai.ts src/adapters/openclaw.ts src/adapters/express.ts --format esm,cjs --dts --clean && cp src/worlds/derivation-world.nv-world.md dist/worlds/derivation-world.nv-world.md",

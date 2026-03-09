@@ -1,0 +1,230 @@
+openapi: 3.1.0
+info:
+  title: NeuroVerse Governance API
+  version: 0.2.2
+  description: |
+    Deterministic governance engine for AI agents.
+    Evaluates actions against world rules and plan constraints.
+    Returns ALLOW, BLOCK, or PAUSE verdicts. No LLM in the evaluation loop.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: NeuroverseOS
+    url: https://neuroverseos.com
+
+servers:
+  - url: http://localhost:4242
+    description: Local governance server (neuroverse playground or Express middleware)
+
+paths:
+  /api/guard:
+    post:
+      operationId: evaluateGuard
+      summary: Evaluate an agent action against world governance rules
+      description: |
+        Synchronously evaluates whether an action is allowed by the loaded world.
+        Returns a verdict with status (ALLOW/BLOCK/PAUSE), matched rule, and optional trace.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardEvent'
+            examples:
+              block_example:
+                summary: Action that gets blocked
+                value:
+                  intent: "delete all customer tables"
+                  tool: "database"
+                  scope: "production"
+              allow_example:
+                summary: Action that is allowed
+                value:
+                  intent: "read user profile"
+                  tool: "database"
+                  scope: "users"
+      responses:
+        '200':
+          description: Action is allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuardVerdict'
+        '403':
+          description: Action is blocked by governance policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockResponse'
+
+  /api/plan/check:
+    post:
+      operationId: checkPlan
+      summary: Check an action against the active plan
+      description: |
+        Evaluates whether an action matches a step in the active plan.
+        Returns ON_PLAN, OFF_PLAN, CONSTRAINT_VIOLATED, or PLAN_COMPLETE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardEvent'
+      responses:
+        '200':
+          description: Plan verdict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanVerdict'
+
+  /api/plan/advance:
+    post:
+      operationId: advancePlan
+      summary: Mark a plan step as completed
+      description: |
+        Advances a step in the active plan. In verified mode, steps with
+        a `verify` field require evidence (type + proof) to advance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - stepId
+              properties:
+                stepId:
+                  type: string
+                  description: ID of the step to advance
+                evidence:
+                  $ref: '#/components/schemas/StepEvidence'
+      responses:
+        '200':
+          description: Step advanced successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvanceResult'
+
+  /api/plan/status:
+    get:
+      operationId: getPlanStatus
+      summary: Get current plan progress
+      responses:
+        '200':
+          description: Plan progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanProgress'
+
+components:
+  schemas:
+    GuardEvent:
+      type: object
+      required:
+        - intent
+      properties:
+        intent:
+          type: string
+          description: What the agent wants to do
+        tool:
+          type: string
+          description: Tool being invoked (e.g., "database", "http", "shell")
+        scope:
+          type: string
+          description: Resource or scope being accessed
+        actionCategory:
+          type: string
+          enum: [read, write, delete, execute, communicate, other]
+        direction:
+          type: string
+          enum: [input, output]
+        args:
+          type: object
+          additionalProperties: true
+
+    GuardVerdict:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ALLOW, BLOCK, PAUSE]
+        reason:
+          type: string
+        ruleId:
+          type: string
+        invariantId:
+          type: string
+        trace:
+          type: object
+          description: Full evaluation trace (when trace mode is enabled)
+
+    BlockResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Governance policy violation
+        reason:
+          type: string
+        ruleId:
+          type: string
+        status:
+          type: string
+          enum: [BLOCK, PAUSE]
+
+    PlanVerdict:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        status:
+          type: string
+          enum: [ON_PLAN, OFF_PLAN, CONSTRAINT_VIOLATED, PLAN_COMPLETE]
+        matchedStep:
+          type: string
+        closestStep:
+          type: string
+        reason:
+          type: string
+        progress:
+          $ref: '#/components/schemas/PlanProgress'
+
+    PlanProgress:
+      type: object
+      properties:
+        completed:
+          type: integer
+        total:
+          type: integer
+        percentage:
+          type: integer
+
+    StepEvidence:
+      type: object
+      required:
+        - type
+        - proof
+      properties:
+        type:
+          type: string
+          description: Must match the step's `verify` field
+        proof:
+          type: string
+          description: URL, hash, output snippet, or other proof
+        timestamp:
+          type: string
+          format: date-time
+
+    AdvanceResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        reason:
+          type: string
+        evidence:
+          $ref: '#/components/schemas/StepEvidence'
