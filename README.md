@@ -3,25 +3,80 @@
 [![npm version](https://img.shields.io/npm/v/@neuroverseos/governance)](https://www.npmjs.com/package/@neuroverseos/governance)
 [![license](https://img.shields.io/npm/l/@neuroverseos/governance)](LICENSE.md)
 
-Runtime that verifies whether an AI agent can escape the rules of the world it operates in.
+**Deterministic policy firewall for AI agents.** Evaluates every action before it executes. No LLM in the loop.
 
 ```
 AI agent → NeuroVerse → real system
 ```
 
-Deterministic. No LLM in the evaluation loop. Same event + same rules = same verdict, every time.
+Same event + same rules = same verdict, every time.
 
-```bash
-npm install @neuroverseos/governance
-```
+## Try it instantly
 
-### Quick test (no install required)
+No install required:
 
 ```bash
 npx @neuroverseos/governance init
 npx @neuroverseos/governance build
 npx @neuroverseos/governance guard
 ```
+
+Or install:
+
+```bash
+npm install @neuroverseos/governance
+```
+
+---
+
+## When to Use NeuroVerse
+
+Use NeuroVerse when you need to enforce rules on AI agents **before** they execute actions.
+
+**Common scenarios:**
+
+- Prevent an AI agent from deleting databases or files
+- Enforce budget limits on automated systems
+- Stop agents from sending sensitive data to external services
+- Verify agent actions against organizational policy
+- Add deterministic guardrails to LangChain, AutoGPT, or custom agents
+- Enforce step-by-step plans with verified completion
+
+**How it works:**
+
+1. Your AI agent decides to take an action
+2. The action passes through NeuroVerse's 6-phase evaluation pipeline
+3. NeuroVerse returns ALLOW, BLOCK, or PAUSE — synchronously, no network calls
+4. Only ALLOW actions reach the real system
+
+This creates a **policy firewall** between AI reasoning and real-world systems.
+
+```
+Without NeuroVerse:  AI agent → executes anything → real system
+With NeuroVerse:     AI agent → NeuroVerse [ALLOW|BLOCK|PAUSE] → real system
+```
+
+---
+
+## Works With
+
+NeuroVerse governs AI agents built with any framework:
+
+| Framework | Integration |
+|-----------|-------------|
+| **LangChain** | Callback handler — drop-in, no code changes |
+| **OpenAI Assistants** | Function call interceptor |
+| **AutoGPT / CrewAI** | HTTP middleware or direct API |
+| **Claude Code agents** | MCP server |
+| **Cursor / Windsurf** | MCP server |
+| **Custom tool agents** | 3-line programmatic API |
+
+Deployment modes:
+
+- **CLI** — pipe JSON, get verdicts (`neuroverse guard`)
+- **MCP server** — `neuroverse mcp --world ./world`
+- **Express/Fastify middleware** — `app.use('/api', middleware)`
+- **Programmatic** — `evaluateGuard(event, world)` in any Node.js app
 
 ---
 
