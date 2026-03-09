@@ -15,6 +15,14 @@ Deterministic. No LLM in the evaluation loop. Same event + same rules = same ver
 npm install @neuroverseos/governance
 ```
 
+### Quick test (no install required)
+
+```bash
+npx @neuroverseos/governance init
+npx @neuroverseos/governance build
+npx @neuroverseos/governance guard
+```
+
 ---
 
 ## The 5-Minute Demo
@@ -259,6 +267,47 @@ import { parsePlanMarkdown, evaluatePlan, advancePlan } from '@neuroverseos/gove
 const { plan } = parsePlanMarkdown(markdown);
 const verdict = evaluatePlan({ intent: 'write blog post' }, plan);
 // → { status: 'ON_PLAN', matchedStep: 'write_announcement_blog_post' }
+
+const result = advancePlan(plan, 'write_announcement_blog_post');
+// → { success: true, plan: <updated plan> }
+```
+
+### Completion modes
+
+Plans support two completion modes, set in frontmatter:
+
+**Trust** (default) — caller asserts "done", step advances:
+
+```markdown
+---
+plan_id: product_launch
+completion: trust
+---
+```
+
+**Verified** — steps with `[verify: ...]` require evidence to advance:
+
+```markdown
+---
+plan_id: product_launch
+completion: verified
+---
+
+# Steps
+- Write blog post [tag: content]
+- Publish GitHub release [verify: github_release_created]
+```
+
+Steps without `verify` still advance on trust, even in verified mode.
+
+```bash
+# Trust mode — just advance:
+neuroverse plan advance write_blog_post --plan plan.json
+
+# Verified mode — evidence required for steps with verify:
+neuroverse plan advance publish_github_release --plan plan.json \
+  --evidence github_release_created \
+  --proof "https://github.com/org/repo/releases/v1.0"
 ```
 
 ---
@@ -413,7 +462,7 @@ src/
   loader/
     world-loader.ts         # Load WorldDefinition from disk
 
-test/                       # 293 tests
+test/                       # 303 tests
 ```
 
 Zero runtime dependencies. Pure TypeScript. Node.js 18+.
