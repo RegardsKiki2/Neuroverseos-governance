@@ -102,7 +102,7 @@ export type { ImpactReport, PreventionCategory } from './engine/impact-report';
 
 // ─── World Loader ──────────────────────────────────────────────────────────
 
-export { loadWorld, loadWorldFromDirectory } from './loader/world-loader';
+export { loadWorld, loadWorldFromDirectory, loadWorldFromZip, loadWorldFromBuffer } from './loader/world-loader';
 
 // ─── World Resolver ────────────────────────────────────────────────────────
 
