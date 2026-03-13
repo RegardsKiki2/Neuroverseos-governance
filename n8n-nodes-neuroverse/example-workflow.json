@@ -1,0 +1,148 @@
+{
+  "name": "AI Agent Governance with NeuroVerse Guard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-action",
+        "responseMode": "responseNode"
+      },
+      "id": "trigger-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify({ intent: $json.body.intent || 'Update pricing model', tool: $json.body.tool || 'config-api', args: $json.body.args || {} }) }}"
+      },
+      "id": "set-1",
+      "name": "Simulate Agent Action",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "worldSource": "filePath",
+        "worldFilePath": "/data/worlds/policy.nv-world.zip",
+        "intent": "={{ $json.intent }}",
+        "tool": "={{ $json.tool }}",
+        "level": "standard"
+      },
+      "id": "guard-1",
+      "name": "NeuroVerse Guard",
+      "type": "n8n-nodes-neuroverse.neuroVerseGuard",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Action is ALLOWED — execute the agent's tool call\nconst intent = items[0].json.intent;\nconsole.log(`Executing: ${intent}`);\n\nreturn [{ json: { executed: true, intent, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "allow-1",
+      "name": "Execute Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 160]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Action is BLOCKED — log and alert\nconst verdict = items[0].json.verdict;\nconsole.error(`BLOCKED: ${verdict.reason}`);\n\nreturn [{ json: { blocked: true, reason: verdict.reason, evidence: verdict.evidence, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "block-1",
+      "name": "Log Block + Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Action is PAUSED — queue for human approval\nconst verdict = items[0].json.verdict;\nconsole.warn(`PAUSED: ${verdict.reason}`);\n\nreturn [{ json: { paused: true, reason: verdict.reason, evidence: verdict.evidence, awaitingApproval: true, timestamp: new Date().toISOString() } }];"
+      },
+      "id": "pause-1",
+      "name": "Request Approval",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 440]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "respond-allow",
+      "name": "Respond ALLOW",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1160, 160]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "id": "respond-block",
+      "name": "Respond BLOCK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "respond-pause",
+      "name": "Respond PAUSE",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1160, 440]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Simulate Agent Action", "type": "main", "index": 0 }]
+      ]
+    },
+    "Simulate Agent Action": {
+      "main": [
+        [{ "node": "NeuroVerse Guard", "type": "main", "index": 0 }]
+      ]
+    },
+    "NeuroVerse Guard": {
+      "main": [
+        [{ "node": "Execute Action", "type": "main", "index": 0 }],
+        [{ "node": "Log Block + Alert", "type": "main", "index": 0 }],
+        [{ "node": "Request Approval", "type": "main", "index": 0 }]
+      ]
+    },
+    "Execute Action": {
+      "main": [
+        [{ "node": "Respond ALLOW", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Block + Alert": {
+      "main": [
+        [{ "node": "Respond BLOCK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Request Approval": {
+      "main": [
+        [{ "node": "Respond PAUSE", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
