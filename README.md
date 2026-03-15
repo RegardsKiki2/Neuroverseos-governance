@@ -11,6 +11,26 @@ AI agent → NeuroVerse → real system
 
 Deterministic. No LLM in the evaluation loop. Same event + same rules = same verdict, every time.
 
+## Quick start
+
+Create a governed research environment:
+
+```bash
+npx @neuroverseos/governance init-world autoresearch \
+  --context "attention-free LLM architectures" \
+  --dataset TinyStories \
+  --goal "lowest val_bpb"
+```
+
+Outputs:
+
+```
+research.nv-world.md
+research.research.json
+```
+
+These files define the **Research World** your agents operate inside.
+
 ```bash
 npm install @neuroverseos/governance
 ```
