@@ -47,6 +47,7 @@ import type {
 } from '../contracts/guard-contract';
 import type { PlanCheck } from '../contracts/plan-contract';
 import { evaluatePlan, buildPlanCheck } from './plan-engine';
+import { normalizeEventText, matchesAllKeywords } from './text-utils';
 
 // ─── Safety Patterns ─────────────────────────────────────────────────────────
 
@@ -178,9 +179,7 @@ export function evaluateGuard(
   const includeTrace = options.trace ?? false;
 
   // Normalize event text for matching
-  const eventText = (
-    event.intent + ' ' + (event.tool ?? '') + ' ' + (event.scope ?? '')
-  ).toLowerCase();
+  const eventText = normalizeEventText(event);
 
   // ─── Build trace collectors ──────────────────────────────────────────
   const invariantChecks: InvariantCheck[] = [];
@@ -825,12 +824,10 @@ function checkLevelConstraints(
 
 /**
  * Keyword matching: ALL significant keywords (>3 chars) must be present.
- * Same strategy as GovernanceEngine.matchesRule — strict AND logic.
+ * Delegates to shared text-utils.
  */
 function matchesKeywords(eventText: string, ruleText: string): boolean {
-  const keywords = ruleText.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  if (keywords.length === 0) return false;
-  return keywords.every(kw => eventText.includes(kw));
+  return matchesAllKeywords(eventText, ruleText);
 }
 
 /**

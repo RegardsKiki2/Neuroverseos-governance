@@ -7,6 +7,7 @@
  *   adapters/openai     — OpenAI function calling guard
  *   adapters/openclaw   — OpenClaw agent plugin
  *   adapters/express    — Express/Fastify HTTP middleware
+ *   adapters/shared     — Shared utilities (GovernanceBlockedError, plan tracking, etc.)
  *
  * Import directly from the adapter you need:
  *   import { createNeuroVerseCallbackHandler } from 'neuroverse-governance/adapters/langchain';
@@ -14,6 +15,20 @@
  *   import { createNeuroVersePlugin } from 'neuroverse-governance/adapters/openclaw';
  *   import { createGovernanceMiddleware } from 'neuroverse-governance/adapters/express';
  */
+
+export {
+  GovernanceBlockedError,
+  trackPlanProgress,
+  extractScope,
+  buildEngineOptions,
+  defaultBlockMessage,
+} from './shared';
+
+export type {
+  PlanTrackingCallbacks,
+  PlanTrackingState,
+  BaseAdapterOptions,
+} from './shared';
 
 export {
   NeuroVerseCallbackHandler,
