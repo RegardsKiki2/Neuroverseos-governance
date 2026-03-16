@@ -73,3 +73,17 @@ export type {
   ResearchState,
   AutoresearchGovernorConfig,
 } from './autoresearch';
+
+export {
+  DeepAgentsGuard,
+  createDeepAgentsGuard,
+  createDeepAgentsGuardFromWorld,
+  GovernanceBlockedError as DeepAgentsGovernanceBlockedError,
+} from './deep-agents';
+
+export type {
+  DeepAgentsToolCall,
+  DeepAgentsToolCategory,
+  DeepAgentsGuardResult,
+  DeepAgentsGuardOptions,
+} from './deep-agents';
