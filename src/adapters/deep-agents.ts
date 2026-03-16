@@ -26,8 +26,24 @@ import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/
 import type { PlanDefinition, PlanProgress } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { evaluateGuard } from '../engine/guard-engine';
-import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engine';
 import { loadWorld } from '../loader/world-loader';
+import {
+  GovernanceBlockedError as BaseGovernanceBlockedError,
+  trackPlanProgress,
+  extractScope,
+  buildEngineOptions,
+} from './shared';
+import type { PlanTrackingState, PlanTrackingCallbacks } from './shared';
+import {
+  classifyTool,
+  DANGEROUS_SHELL_PATTERNS,
+  DANGEROUS_GIT_PATTERNS,
+  isDangerousCommand,
+  isDangerousGitCommand,
+  assessRiskLevel,
+  categoryToActionCategory,
+} from '../engine/tool-classifier';
+import type { ToolCategory } from '../engine/tool-classifier';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,17 +57,8 @@ export interface DeepAgentsToolCall {
   runId?: string;
 }
 
-/** Categorized tool types recognized by the adapter. */
-export type DeepAgentsToolCategory =
-  | 'file_read'
-  | 'file_write'
-  | 'file_delete'
-  | 'shell'
-  | 'git'
-  | 'network'
-  | 'sub_agent'
-  | 'context'
-  | 'unknown';
+/** Categorized tool types recognized by the adapter (re-exported from tool-classifier). */
+export type DeepAgentsToolCategory = ToolCategory;
 
 /** Result of a governed evaluation. */
 export interface DeepAgentsGuardResult {
@@ -90,94 +97,18 @@ export interface DeepAgentsGuardOptions {
   onPlanComplete?: () => void;
 }
 
-export class GovernanceBlockedError extends Error {
-  public readonly verdict: GuardVerdict;
+export class GovernanceBlockedError extends BaseGovernanceBlockedError {
   public readonly toolCall: DeepAgentsToolCall;
   public readonly category: DeepAgentsToolCategory;
 
   constructor(verdict: GuardVerdict, toolCall: DeepAgentsToolCall, category: DeepAgentsToolCategory) {
-    super(`[NeuroVerse] BLOCKED: ${verdict.reason ?? verdict.ruleId ?? 'governance rule'}`);
-    this.name = 'GovernanceBlockedError';
-    this.verdict = verdict;
+    super(verdict);
     this.toolCall = toolCall;
     this.category = category;
   }
 }
 
-// ─── Tool Classification ────────────────────────────────────────────────────
-
-/** Known tool names in the Deep Agents framework mapped to categories. */
-const TOOL_CATEGORY_MAP: Record<string, DeepAgentsToolCategory> = {
-  // File operations
-  read_file: 'file_read',
-  read: 'file_read',
-  glob: 'file_read',
-  grep: 'file_read',
-  list_files: 'file_read',
-  write_file: 'file_write',
-  write: 'file_write',
-  create_file: 'file_write',
-  edit_file: 'file_write',
-  edit: 'file_write',
-  patch: 'file_write',
-  delete_file: 'file_delete',
-  remove_file: 'file_delete',
-  // Shell
-  shell: 'shell',
-  bash: 'shell',
-  execute: 'shell',
-  run_command: 'shell',
-  terminal: 'shell',
-  // Git
-  git: 'git',
-  git_commit: 'git',
-  git_push: 'git',
-  git_checkout: 'git',
-  // Network
-  http: 'network',
-  fetch: 'network',
-  curl: 'network',
-  web_search: 'network',
-  // Sub-agents
-  sub_agent: 'sub_agent',
-  spawn_agent: 'sub_agent',
-  delegate: 'sub_agent',
-  // Context management
-  summarize: 'context',
-  compress_context: 'context',
-};
-
-function classifyTool(toolName: string): DeepAgentsToolCategory {
-  const normalized = toolName.toLowerCase().replace(/[-\s]/g, '_');
-  return TOOL_CATEGORY_MAP[normalized] ?? 'unknown';
-}
-
-// ─── Dangerous Command Patterns ─────────────────────────────────────────────
-
-const DANGEROUS_SHELL_PATTERNS: { pattern: RegExp; label: string }[] = [
-  { pattern: /rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|.*-rf\s+|.*--force)/, label: 'force-delete' },
-  { pattern: /rm\s+-[a-zA-Z]*r/, label: 'recursive-delete' },
-  { pattern: />\s*\/dev\/sd/, label: 'disk-overwrite' },
-  { pattern: /mkfs\./, label: 'format-disk' },
-  { pattern: /dd\s+if=/, label: 'disk-dump' },
-  { pattern: /chmod\s+(-R\s+)?777/, label: 'world-writable' },
-  { pattern: /curl\s+.*\|\s*(bash|sh|zsh)/, label: 'pipe-to-shell' },
-  { pattern: /wget\s+.*\|\s*(bash|sh|zsh)/, label: 'pipe-to-shell' },
-  { pattern: /:(){ :\|:& };:/, label: 'fork-bomb' },
-  { pattern: />\s*\/etc\//, label: 'system-config-overwrite' },
-  { pattern: /shutdown|reboot|halt|poweroff/, label: 'system-shutdown' },
-  { pattern: /kill\s+-9\s+1\b/, label: 'kill-init' },
-];
-
-const DANGEROUS_GIT_PATTERNS: { pattern: RegExp; label: string }[] = [
-  { pattern: /push\s+.*--force/, label: 'force-push' },
-  { pattern: /push\s+.*-f\b/, label: 'force-push' },
-  { pattern: /push\s+(origin\s+)?main\b/, label: 'push-main' },
-  { pattern: /push\s+(origin\s+)?master\b/, label: 'push-master' },
-  { pattern: /reset\s+--hard/, label: 'hard-reset' },
-  { pattern: /clean\s+-fd/, label: 'clean-force' },
-  { pattern: /branch\s+-D/, label: 'force-delete-branch' },
-];
+// Tool classification and dangerous patterns are now centralized in engine/tool-classifier.ts
 
 // ─── Default Tool → GuardEvent Mapping ──────────────────────────────────────
 
@@ -186,12 +117,7 @@ function defaultMapToolCall(toolCall: DeepAgentsToolCall): GuardEvent {
   const args = toolCall.args;
 
   // Extract scope (file path, URL, or command)
-  let scope: string | undefined;
-  if (typeof args.path === 'string') scope = args.path;
-  else if (typeof args.file_path === 'string') scope = args.file_path;
-  else if (typeof args.filename === 'string') scope = args.filename;
-  else if (typeof args.url === 'string') scope = args.url;
-  else if (typeof args.command === 'string') scope = args.command;
+  const scope = extractScope(args);
 
   // Build intent string that the guard engine can match against
   let intent = toolCall.tool;
@@ -206,14 +132,7 @@ function defaultMapToolCall(toolCall: DeepAgentsToolCall): GuardEvent {
   }
 
   // Determine risk level
-  let riskLevel: 'low' | 'medium' | 'high' | undefined;
-  if (category === 'file_read' || category === 'context') {
-    riskLevel = 'low';
-  } else if (category === 'file_write' || category === 'sub_agent') {
-    riskLevel = 'medium';
-  } else if (category === 'shell' || category === 'file_delete' || category === 'git' || category === 'network') {
-    riskLevel = 'high';
-  }
+  const riskLevel = assessRiskLevel(category);
 
   // Check for dangerous patterns
   let irreversible = false;
@@ -231,12 +150,7 @@ function defaultMapToolCall(toolCall: DeepAgentsToolCall): GuardEvent {
     scope,
     args,
     direction: 'input',
-    actionCategory: category === 'file_read' || category === 'context' ? 'read'
-      : category === 'file_write' ? 'write'
-      : category === 'file_delete' ? 'delete'
-      : category === 'shell' ? 'shell'
-      : category === 'network' ? 'network'
-      : 'other',
+    actionCategory: categoryToActionCategory(category),
     riskLevel,
     irreversible,
   };
@@ -264,11 +178,7 @@ export class DeepAgentsGuard {
     this.world = world;
     this.options = options;
     this.activePlan = options.plan;
-    this.engineOptions = {
-      trace: options.trace ?? false,
-      level: options.level,
-      plan: this.activePlan,
-    };
+    this.engineOptions = buildEngineOptions(options, this.activePlan);
     this.mapToolCall = options.mapToolCall ?? defaultMapToolCall;
   }
 
@@ -293,7 +203,7 @@ export class DeepAgentsGuard {
 
     // Track plan progress on ALLOW
     if (verdict.status === 'ALLOW' && this.activePlan) {
-      this.trackPlanProgress(event);
+      this.trackPlanProgressInternal(event);
     }
 
     return result;
@@ -401,20 +311,14 @@ export class DeepAgentsGuard {
    * Useful for pre-screening before full governance evaluation.
    */
   static isDangerousCommand(command: string): { dangerous: boolean; labels: string[] } {
-    const matched = DANGEROUS_SHELL_PATTERNS
-      .filter(p => p.pattern.test(command))
-      .map(p => p.label);
-    return { dangerous: matched.length > 0, labels: matched };
+    return isDangerousCommand(command);
   }
 
   /**
    * Check if a git command contains dangerous patterns.
    */
   static isDangerousGitCommand(command: string): { dangerous: boolean; labels: string[] } {
-    const matched = DANGEROUS_GIT_PATTERNS
-      .filter(p => p.pattern.test(command))
-      .map(p => p.label);
-    return { dangerous: matched.length > 0, labels: matched };
+    return isDangerousGitCommand(command);
   }
 
   /**
@@ -426,22 +330,8 @@ export class DeepAgentsGuard {
 
   // ─── Private ──────────────────────────────────────────────────────────────
 
-  private trackPlanProgress(event: GuardEvent): void {
-    if (!this.activePlan) return;
-
-    const planVerdict = evaluatePlan(event, this.activePlan);
-    if (planVerdict.matchedStep) {
-      const advResult = advancePlan(this.activePlan, planVerdict.matchedStep);
-      if (advResult.success && advResult.plan) {
-        this.activePlan = advResult.plan;
-        this.engineOptions.plan = this.activePlan;
-      }
-      const progress = getPlanProgress(this.activePlan);
-      this.options.onPlanProgress?.(progress);
-      if (progress.completed === progress.total) {
-        this.options.onPlanComplete?.();
-      }
-    }
+  private trackPlanProgressInternal(event: GuardEvent): void {
+    trackPlanProgress(event, this, this.options);
   }
 }
 

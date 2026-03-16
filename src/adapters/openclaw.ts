@@ -16,8 +16,14 @@ import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/
 import type { PlanDefinition, PlanProgress } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { evaluateGuard } from '../engine/guard-engine';
-import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engine';
 import { loadWorld } from '../loader/world-loader';
+import {
+  GovernanceBlockedError as BaseGovernanceBlockedError,
+  trackPlanProgress,
+  extractScope,
+  buildEngineOptions,
+} from './shared';
+import type { PlanTrackingState, PlanTrackingCallbacks } from './shared';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -62,14 +68,11 @@ export interface NeuroVersePluginOptions {
   onPlanComplete?: () => void;
 }
 
-export class GovernanceBlockedError extends Error {
-  public readonly verdict: GuardVerdict;
+export class GovernanceBlockedError extends BaseGovernanceBlockedError {
   public readonly action: AgentAction;
 
   constructor(verdict: GuardVerdict, action: AgentAction) {
-    super(`[NeuroVerse] BLOCKED: ${verdict.reason ?? verdict.ruleId ?? 'governance rule'}`);
-    this.name = 'GovernanceBlockedError';
-    this.verdict = verdict;
+    super(verdict);
     this.action = action;
   }
 }
@@ -82,11 +85,7 @@ function defaultMapAction(action: AgentAction, direction: 'input' | 'output'): G
     tool: action.tool ?? action.type,
     args: action.input,
     direction,
-    scope: typeof action.input?.path === 'string'
-      ? action.input.path
-      : typeof action.input?.url === 'string'
-        ? action.input.url
-        : undefined,
+    scope: action.input ? extractScope(action.input) : undefined,
   };
 }
 
@@ -112,11 +111,7 @@ export class NeuroVersePlugin {
     this.world = world;
     this.options = options;
     this.activePlan = options.plan;
-    this.engineOptions = {
-      trace: options.trace ?? false,
-      level: options.level,
-      plan: this.activePlan,
-    };
+    this.engineOptions = buildEngineOptions(options, this.activePlan);
     this.mapAction = options.mapAction ?? defaultMapAction;
   }
 
@@ -144,20 +139,8 @@ export class NeuroVersePlugin {
     }
 
     // Track plan progress on ALLOW
-    if (verdict.status === 'ALLOW' && this.activePlan) {
-      const planVerdict = evaluatePlan(event, this.activePlan);
-      if (planVerdict.matchedStep) {
-        const advResult = advancePlan(this.activePlan, planVerdict.matchedStep);
-        if (advResult.success && advResult.plan) {
-          this.activePlan = advResult.plan;
-          this.engineOptions.plan = this.activePlan;
-        }
-        const progress = getPlanProgress(this.activePlan);
-        this.options.onPlanProgress?.(progress);
-        if (progress.completed === progress.total) {
-          this.options.onPlanComplete?.();
-        }
-      }
+    if (verdict.status === 'ALLOW') {
+      trackPlanProgress(event, this, this.options);
     }
 
     return result;

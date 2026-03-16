@@ -27,53 +27,37 @@ import type {
   StepEvidence,
   AdvanceResult,
 } from '../contracts/plan-contract';
+import {
+  normalizeEventText,
+  extractKeywords,
+  matchesKeywordThreshold,
+  tokenSimilarity as computeTokenSimilarity,
+} from './text-utils';
 
 // ─── Keyword Matching ───────────────────────────────────────────────────────
 
 /**
  * Match event text against a step using keywords and tags.
- * ALL significant keywords (>3 chars) from the step must be present
- * in the event text. Tags are treated as additional keywords.
+ * Requires at least half of significant keywords (>3 chars) to match.
  */
 function keywordMatch(eventText: string, step: PlanStep): boolean {
   const stepText = [
     step.label,
     step.description ?? '',
     ...(step.tags ?? []),
-  ].join(' ').toLowerCase();
+  ].join(' ');
 
-  const keywords = stepText.split(/\s+/).filter(w => w.length > 3);
-  if (keywords.length === 0) return false;
-
-  // Require at least half of the keywords to match (flexible matching)
-  const matched = keywords.filter(kw => eventText.includes(kw));
-  return matched.length >= Math.ceil(keywords.length * 0.5);
+  return matchesKeywordThreshold(eventText, stepText, 0.5);
 }
 
 // ─── Similarity Scoring ─────────────────────────────────────────────────────
 
 /**
- * Compute a simple token-overlap similarity score between two strings.
- * Returns a value between 0 and 1.
- *
- * This is a lightweight deterministic alternative to embedding-based
- * similarity. For production use, precomputed embeddings can be
- * plugged in at compile time.
+ * Compute Jaccard token-overlap similarity between two strings.
+ * Delegates to shared text-utils.
  */
 function tokenSimilarity(a: string, b: string): number {
-  const tokensA = new Set(a.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-  const tokensB = new Set(b.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-
-  if (tokensA.size === 0 || tokensB.size === 0) return 0;
-
-  let intersection = 0;
-  for (const t of tokensA) {
-    if (tokensB.has(t)) intersection++;
-  }
-
-  // Jaccard similarity
-  const union = new Set([...tokensA, ...tokensB]).size;
-  return union > 0 ? intersection / union : 0;
+  return computeTokenSimilarity(a, b);
 }
 
 /**
@@ -171,7 +155,7 @@ function checkConstraints(
 
     // Scope constraints — check if action touches restricted areas
     if (constraint.type === 'scope' && constraint.trigger) {
-      const keywords = constraint.trigger.split(/\s+/).filter(w => w.length > 3);
+      const keywords = extractKeywords(constraint.trigger);
       const violated = keywords.length > 0 && keywords.every(kw => eventText.includes(kw));
       checks.push({
         constraintId: constraint.id,
@@ -314,11 +298,7 @@ export function evaluatePlan(
   }
 
   // Normalize event text
-  const eventText = [
-    event.intent,
-    event.tool ?? '',
-    event.scope ?? '',
-  ].join(' ').toLowerCase();
+  const eventText = normalizeEventText(event);
 
   // Match action to step
   const { matched, closest, closestScore } = findMatchingStep(eventText, event, plan.steps);
@@ -381,7 +361,7 @@ export function buildPlanCheck(
   plan: PlanDefinition,
   verdict: PlanVerdict,
 ): PlanCheck {
-  const eventText = [event.intent, event.tool ?? '', event.scope ?? ''].join(' ').toLowerCase();
+  const eventText = normalizeEventText(event);
   const { matched, closest, closestScore } = findMatchingStep(eventText, event, plan.steps);
   const { checks: constraintChecks } = checkConstraints(event, eventText, plan.constraints);
   const progress = getPlanProgress(plan);

@@ -23,6 +23,7 @@
 
 import { loadWorld } from '../loader/world-loader';
 import { simulateWorld, renderSimulateText } from '../engine/simulate-engine';
+import { resolveWorldPath, parseCliValue } from './cli-utils';
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ function parseArgs(argv: string[]): SimulateArgs {
       if (eqIdx > 0) {
         const key = pair.slice(0, eqIdx);
         const rawValue = pair.slice(eqIdx + 1);
-        stateOverrides[key] = parseValue(rawValue);
+        stateOverrides[key] = parseCliValue(rawValue);
       }
     } else if (!arg.startsWith('--') && !worldPath) {
       worldPath = arg;
@@ -71,38 +72,7 @@ function parseArgs(argv: string[]): SimulateArgs {
   return { worldPath, steps, stateOverrides, profile, json };
 }
 
-function parseValue(raw: string): string | number | boolean {
-  if (raw === 'true') return true;
-  if (raw === 'false') return false;
-  const num = Number(raw);
-  if (!isNaN(num) && raw.trim() !== '') return num;
-  return raw;
-}
-
-// ─── World Path Resolution ──────────────────────────────────────────────────
-
-async function resolveWorldPath(input: string): Promise<string> {
-  const { stat } = await import('fs/promises');
-
-  try {
-    const info = await stat(input);
-    if (info.isDirectory()) return input;
-  } catch { /* Not a direct path */ }
-
-  const neuroversePath = `.neuroverse/worlds/${input}`;
-  try {
-    const info = await stat(neuroversePath);
-    if (info.isDirectory()) return neuroversePath;
-  } catch { /* Not found there either */ }
-
-  throw new Error(
-    `World not found: "${input}"\n` +
-    `Tried:\n` +
-    `  ${input}\n` +
-    `  ${neuroversePath}\n` +
-    `\nBuild a world first: neuroverse build <input.md>`,
-  );
-}
+// resolveWorldPath and parseCliValue are now imported from cli-utils.ts
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 

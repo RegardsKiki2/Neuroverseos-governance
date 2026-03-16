@@ -22,6 +22,7 @@ import { loadWorld } from '../loader/world-loader';
 import { resolveWorldPath, describeActiveWorld } from '../loader/world-resolver';
 import { GUARD_EXIT_CODES } from '../contracts/guard-contract';
 import type { GuardEvent, GuardEngineOptions, GuardExitCode } from '../contracts/guard-contract';
+import { readStdin } from './cli-utils';
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
@@ -53,16 +54,6 @@ function parseArgs(argv: string[]): CliArgs {
   }
 
   return { worldPath, trace, level };
-}
-
-// ─── Stdin Reader ────────────────────────────────────────────────────────────
-
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString('utf-8');
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────

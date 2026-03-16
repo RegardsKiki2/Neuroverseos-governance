@@ -18,6 +18,7 @@
 
 import { loadWorld } from '../loader/world-loader';
 import { improveWorld, renderImproveText } from '../engine/improve-engine';
+import { resolveWorldPath } from './cli-utils';
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
@@ -44,31 +45,6 @@ function parseArgs(argv: string[]): ImproveArgs {
   }
 
   return { worldPath, json };
-}
-
-// ─── World Path Resolution ──────────────────────────────────────────────────
-
-async function resolveWorldPath(input: string): Promise<string> {
-  const { stat } = await import('fs/promises');
-
-  try {
-    const info = await stat(input);
-    if (info.isDirectory()) return input;
-  } catch { /* Not a direct path */ }
-
-  const neuroversePath = `.neuroverse/worlds/${input}`;
-  try {
-    const info = await stat(neuroversePath);
-    if (info.isDirectory()) return neuroversePath;
-  } catch { /* Not found there either */ }
-
-  throw new Error(
-    `World not found: "${input}"\n` +
-    `Tried:\n` +
-    `  ${input}\n` +
-    `  ${neuroversePath}\n` +
-    `\nBuild a world first: neuroverse build <input.md>`,
-  );
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────

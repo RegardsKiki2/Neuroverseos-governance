@@ -19,8 +19,15 @@ import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/
 import type { PlanDefinition, PlanProgress } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import { evaluateGuard } from '../engine/guard-engine';
-import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engine';
 import { loadWorld } from '../loader/world-loader';
+import {
+  GovernanceBlockedError as BaseGovernanceBlockedError,
+  trackPlanProgress,
+  extractScope,
+  buildEngineOptions,
+  defaultBlockMessage,
+} from './shared';
+import type { PlanTrackingState, PlanTrackingCallbacks } from './shared';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -69,14 +76,11 @@ export interface GovernedExecutorOptions {
   onPlanComplete?: () => void;
 }
 
-export class GovernanceBlockedError extends Error {
-  public readonly verdict: GuardVerdict;
+export class GovernanceBlockedError extends BaseGovernanceBlockedError {
   public readonly toolCallId: string;
 
   constructor(verdict: GuardVerdict, toolCallId: string) {
-    super(`[NeuroVerse] BLOCKED: ${verdict.reason ?? verdict.ruleId ?? 'governance rule'}`);
-    this.name = 'GovernanceBlockedError';
-    this.verdict = verdict;
+    super(verdict);
     this.toolCallId = toolCallId;
   }
 }
@@ -87,18 +91,10 @@ function defaultMapFunctionCall(name: string, args: Record<string, unknown>): Gu
   return {
     intent: name,
     tool: name,
-    scope: typeof args.path === 'string'
-      ? args.path
-      : typeof args.url === 'string'
-        ? args.url
-        : undefined,
+    scope: extractScope(args),
     args,
     direction: 'input',
   };
-}
-
-function defaultBlockMessage(verdict: GuardVerdict): string {
-  return `Action blocked by governance policy: ${verdict.reason ?? 'rule violation'}. Rule: ${verdict.ruleId ?? 'unknown'}.`;
 }
 
 // ─── Governed Tool Executor ─────────────────────────────────────────────────
@@ -119,11 +115,7 @@ export class GovernedToolExecutor {
     this.world = world;
     this.options = options;
     this.activePlan = options.plan;
-    this.engineOptions = {
-      trace: options.trace ?? false,
-      level: options.level,
-      plan: this.activePlan,
-    };
+    this.engineOptions = buildEngineOptions(options, this.activePlan);
     this.mapFn = options.mapFunctionCall ?? defaultMapFunctionCall;
     this.blockMsg = options.blockMessage ?? defaultBlockMessage;
   }
@@ -147,20 +139,8 @@ export class GovernedToolExecutor {
     this.options.onEvaluate?.(verdict, event);
 
     // Track plan progress on ALLOW
-    if (verdict.status === 'ALLOW' && this.activePlan) {
-      const planVerdict = evaluatePlan(event, this.activePlan);
-      if (planVerdict.matchedStep) {
-        const advResult = advancePlan(this.activePlan, planVerdict.matchedStep);
-        if (advResult.success && advResult.plan) {
-          this.activePlan = advResult.plan;
-          this.engineOptions.plan = this.activePlan;
-        }
-        const progress = getPlanProgress(this.activePlan);
-        this.options.onPlanProgress?.(progress);
-        if (progress.completed === progress.total) {
-          this.options.onPlanComplete?.();
-        }
-      }
+    if (verdict.status === 'ALLOW') {
+      trackPlanProgress(event, this, this.options);
     }
 
     return verdict;

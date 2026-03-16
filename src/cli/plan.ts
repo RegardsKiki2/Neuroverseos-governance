@@ -22,6 +22,7 @@ import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engin
 import { PLAN_EXIT_CODES } from '../contracts/plan-contract';
 import type { PlanDefinition } from '../contracts/plan-contract';
 import type { GuardEvent } from '../contracts/guard-contract';
+import { readStdin } from './cli-utils';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -30,15 +31,7 @@ function parseArg(args: string[], flag: string): string | undefined {
   return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
 }
 
-function readStdin(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    process.stdin.setEncoding('utf-8');
-    process.stdin.on('data', chunk => { data += chunk; });
-    process.stdin.on('end', () => resolve(data));
-    process.stdin.on('error', reject);
-  });
-}
+// readStdin is now imported from cli-utils.ts
 
 // ─── Compile ────────────────────────────────────────────────────────────────
 

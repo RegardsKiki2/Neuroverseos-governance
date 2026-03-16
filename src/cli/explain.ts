@@ -18,6 +18,7 @@
 
 import { loadWorld } from '../loader/world-loader';
 import { explainWorld, renderExplainText } from '../engine/explain-engine';
+import { resolveWorldPath } from './cli-utils';
 
 // ─── Argument Parsing ────────────────────────────────────────────────────────
 
@@ -44,42 +45,6 @@ function parseArgs(argv: string[]): ExplainArgs {
   }
 
   return { worldPath, json };
-}
-
-// ─── World Path Resolution ──────────────────────────────────────────────────
-
-/**
- * Resolve a world path from either:
- *   - A direct directory path (./world/, .neuroverse/worlds/foo/)
- *   - A world ID shorthand (inherited_silence → .neuroverse/worlds/inherited_silence/)
- */
-async function resolveWorldPath(input: string): Promise<string> {
-  const { stat } = await import('fs/promises');
-
-  // Try as-is first
-  try {
-    const info = await stat(input);
-    if (info.isDirectory()) return input;
-  } catch {
-    // Not a direct path
-  }
-
-  // Try as world ID in .neuroverse/worlds/
-  const neuroversePath = `.neuroverse/worlds/${input}`;
-  try {
-    const info = await stat(neuroversePath);
-    if (info.isDirectory()) return neuroversePath;
-  } catch {
-    // Not found there either
-  }
-
-  throw new Error(
-    `World not found: "${input}"\n` +
-    `Tried:\n` +
-    `  ${input}\n` +
-    `  ${neuroversePath}\n` +
-    `\nBuild a world first: neuroverse build <input.md>`,
-  );
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────

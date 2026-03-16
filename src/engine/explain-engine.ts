@@ -14,6 +14,7 @@
  */
 
 import type { WorldDefinition, Rule, Effect } from '../types';
+import { collectAllEffects } from './rule-utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -126,13 +127,7 @@ function detectTensions(rules: Rule[]): TensionSummary[] {
   return tensions;
 }
 
-function collectAllEffects(rule: Rule): Effect[] {
-  const effects: Effect[] = [...(rule.effects ?? [])];
-  for (const ce of rule.effects_conditional ?? []) {
-    effects.push(...ce.effects);
-  }
-  return effects;
-}
+// collectAllEffects is now imported from rule-utils.ts
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
