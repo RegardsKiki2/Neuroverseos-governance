@@ -1,0 +1,1897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroVerse Simulation Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #00ff41;
+    --green-dim: #00cc33;
+    --green-dark: #009922;
+    --green-glow: #00ff4180;
+    --bg: #0a0a0a;
+    --bg-panel: #0d1117;
+    --bg-card: #111820;
+    --border: #1a2332;
+    --text: #c9d1d9;
+    --text-dim: #6e7681;
+    --red: #ff4444;
+    --red-glow: #ff444460;
+    --amber: #ffaa00;
+    --cyan: #00d4ff;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Matrix Rain Canvas ─── */
+  #matrix-canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.06;
+    pointer-events: none;
+  }
+
+  /* ─── Main Layout ─── */
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green-glow);
+    margin-bottom: 6px;
+  }
+
+  .header .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+  }
+
+  .header .powered {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    opacity: 0.6;
+  }
+
+  /* ─── Grid ─── */
+  .grid {
+    display: grid;
+    grid-template-columns: 320px 1fr 300px;
+    gap: 16px;
+    min-height: 600px;
+  }
+
+  @media (max-width: 1100px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* ─── Panels ─── */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-header .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green-glow);
+  }
+
+  .panel-body {
+    padding: 16px;
+  }
+
+  /* ─── World Selector ─── */
+  .world-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+
+  .world-tab {
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+
+  .world-tab:hover {
+    border-color: var(--green-dark);
+    color: var(--text);
+  }
+
+  .world-tab.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: #00ff4108;
+    box-shadow: 0 0 10px #00ff4110;
+  }
+
+  .world-tab .tab-name {
+    display: block;
+    font-weight: 500;
+  }
+
+  .world-tab .tab-desc {
+    display: block;
+    font-size: 10px;
+    margin-top: 2px;
+    opacity: 0.6;
+  }
+
+  .custom-toggle {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+  }
+
+  .custom-toggle:hover { border-color: var(--green-dark); color: var(--text); }
+
+  .custom-textarea {
+    width: 100%;
+    height: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--green-dim);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 10px;
+    resize: vertical;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .custom-textarea:focus { outline: none; border-color: var(--green-dark); }
+  .custom-textarea.visible { display: block; }
+
+  /* ─── State Sliders ─── */
+  .state-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .state-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .state-label {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .state-value {
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .slider-group {
+    margin-bottom: 14px;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green-glow);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green-glow);
+    border: none;
+    cursor: pointer;
+  }
+
+  /* ─── Simulate Button ─── */
+  .simulate-btn {
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    border: 1px solid var(--green);
+    border-radius: 3px;
+    color: var(--green);
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 16px;
+  }
+
+  .simulate-btn:hover {
+    background: #00ff4115;
+    box-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .simulate-btn:active {
+    transform: scale(0.98);
+  }
+
+  .simulate-btn.running {
+    animation: pulse-border 1s infinite;
+    pointer-events: none;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 5px var(--green-glow); }
+    50% { box-shadow: 0 0 25px var(--green-glow); }
+  }
+
+  /* ─── Simulation Output ─── */
+  .sim-output {
+    min-height: 500px;
+  }
+
+  .sim-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-align: center;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sim-placeholder .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--green);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* ─── Step Cards ─── */
+  .step-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+  }
+
+  .step-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .step-header {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+
+  .step-number {
+    color: var(--green);
+    font-weight: 500;
+    letter-spacing: 2px;
+  }
+
+  .step-viability {
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  .step-viability.THRIVING,
+  .step-viability.TRUSTED { background: #00ff4120; color: var(--green); }
+  .step-viability.STABLE,
+  .step-viability.PRODUCTIVE { background: #00ff4115; color: var(--green-dim); }
+  .step-viability.COMPRESSED,
+  .step-viability.CAUTIOUS { background: #ffaa0020; color: var(--amber); }
+  .step-viability.CRITICAL,
+  .step-viability.RESTRICTED,
+  .step-viability.AT_RISK { background: #ff444420; color: var(--red); }
+  .step-viability.MODEL_COLLAPSES,
+  .step-viability.TERMINATED,
+  .step-viability.HALTED,
+  .step-viability.UNRELIABLE { background: #ff444430; color: var(--red); border: 1px solid var(--red); }
+
+  .step-rules {
+    padding: 8px 14px;
+  }
+
+  .rule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 11px;
+  }
+
+  .rule-icon {
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .rule-icon.fired { color: var(--amber); }
+  .rule-icon.pass { color: var(--green-dark); opacity: 0.4; }
+  .rule-icon.excluded { color: var(--text-dim); opacity: 0.3; }
+
+  .rule-label {
+    flex: 1;
+    color: var(--text-dim);
+  }
+
+  .rule-label.fired { color: var(--text); }
+
+  .rule-effect {
+    font-size: 10px;
+    color: var(--amber);
+  }
+
+  .rule-effect.advantage { color: var(--green); }
+  .rule-effect.structural { color: var(--red); }
+
+  .step-state {
+    padding: 8px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .state-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .state-chip .val { color: var(--green-dim); font-weight: 500; }
+  .state-chip .val.changed { color: var(--amber); }
+
+  /* ─── Verdict Panel ─── */
+  .verdict-section {
+    text-align: center;
+  }
+
+  .viability-display {
+    margin: 20px 0;
+  }
+
+  .viability-ring {
+    width: 160px;
+    height: 160px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .viability-ring svg {
+    transform: rotate(-90deg);
+    width: 160px;
+    height: 160px;
+  }
+
+  .viability-ring .bg-ring {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+  }
+
+  .viability-ring .fg-ring {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 440;
+    stroke-dashoffset: 440;
+    transition: stroke-dashoffset 1.5s ease, stroke 0.5s;
+    filter: drop-shadow(0 0 6px var(--green-glow));
+  }
+
+  .viability-ring .value-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green-glow);
+  }
+
+  .gate-badge {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 3px;
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  .gate-badge.visible { opacity: 1; }
+
+  /* ─── Stats ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 24px;
+    text-align: left;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  .stat-value.warning { color: var(--amber); }
+  .stat-value.danger { color: var(--red); }
+
+  /* ─── Collapse Banner ─── */
+  .collapse-banner {
+    background: #ff444415;
+    border: 1px solid #ff444440;
+    border-radius: 3px;
+    padding: 16px;
+    margin-top: 16px;
+    text-align: center;
+    display: none;
+  }
+
+  .collapse-banner.visible { display: block; }
+
+  .collapse-banner .collapse-title {
+    color: var(--red);
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--red-glow);
+  }
+
+  .collapse-banner .collapse-detail {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-top: 6px;
+  }
+
+  /* ─── Info text ─── */
+  .info-block {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .invariant-list {
+    margin-top: 12px;
+    list-style: none;
+    font-size: 10px;
+  }
+
+  .invariant-list li {
+    padding: 4px 0;
+    color: var(--text-dim);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .invariant-list li::before {
+    content: '>';
+    color: var(--green-dark);
+    flex-shrink: 0;
+  }
+
+  /* Profile selector */
+  .profile-select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .profile-select:focus { outline: none; border-color: var(--green-dark); }
+
+  .section-divider {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 12px 0 8px;
+  }
+
+  /* Steps slider */
+  .steps-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .steps-row label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .steps-row input { flex: 1; }
+
+  .steps-row .steps-val {
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+    min-width: 20px;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<div class="app">
+  <div class="header">
+    <h1>NeuroVerse Simulation Engine</h1>
+    <div class="subtitle">Deterministic World Governance</div>
+    <div class="powered">powered by MiroFish</div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: World + State -->
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> World</div>
+      <div class="panel-body">
+        <div class="world-tabs" id="world-tabs"></div>
+        <button class="custom-toggle" id="custom-toggle">+ paste custom .nv-world.md</button>
+        <textarea class="custom-textarea" id="custom-textarea" placeholder="Paste your .nv-world.md here..."></textarea>
+
+        <div class="section-divider">Profile</div>
+        <select class="profile-select" id="profile-select"></select>
+
+        <div class="state-section" id="state-section">
+          <div class="section-divider">State Overrides</div>
+          <div id="state-sliders"></div>
+        </div>
+
+        <div class="steps-row">
+          <label>Steps</label>
+          <input type="range" id="steps-slider" min="1" max="20" value="5">
+          <span class="steps-val" id="steps-val">5</span>
+        </div>
+
+        <button class="simulate-btn" id="simulate-btn">Simulate</button>
+      </div>
+    </div>
+
+    <!-- CENTER: Simulation -->
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Simulation</div>
+      <div class="panel-body sim-output" id="sim-output">
+        <div class="sim-placeholder">
+          <div>Select a world and configure state</div>
+          <div>then press <span style="color:var(--green)">SIMULATE</span></div>
+          <span class="cursor"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Verdict -->
+    <div class="panel">
+      <div class="panel-header"><span class="dot"></span> Verdict</div>
+      <div class="panel-body verdict-section" id="verdict-section">
+        <div class="viability-display">
+          <div class="viability-ring">
+            <svg viewBox="0 0 160 160">
+              <circle class="bg-ring" cx="80" cy="80" r="70"/>
+              <circle class="fg-ring" id="viability-ring" cx="80" cy="80" r="70"/>
+            </svg>
+            <div class="value-text" id="viability-value">--</div>
+          </div>
+          <div class="gate-badge" id="gate-badge">AWAITING</div>
+        </div>
+
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <div class="collapse-banner" id="collapse-banner">
+          <div class="collapse-title">Model Collapsed</div>
+          <div class="collapse-detail" id="collapse-detail"></div>
+        </div>
+
+        <ul class="invariant-list" id="invariant-list"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+//  MATRIX RAIN
+// ═══════════════════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('matrix-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const chars = 'NeuroVerse01アイウエオカキクケコサシスセソ>|/\\=+-*';
+const fontSize = 14;
+let columns = Math.floor(canvas.width / fontSize);
+let drops = Array(columns).fill(1);
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#00ff41';
+  ctx.font = fontSize + 'px monospace';
+
+  for (let i = 0; i < drops.length; i++) {
+    const text = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+      drops[i] = 0;
+    }
+    drops[i]++;
+  }
+}
+
+setInterval(drawMatrix, 50);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  WORLD PARSER (Simplified .nv-world.md → WorldDefinition)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function parseWorldMarkdown(md) {
+  const world = {
+    world: { world_id: '', name: '', thesis: '', version: '1.0.0', runtime_mode: 'SIMULATION',
+      default_assumption_profile: '', default_alternative_profile: '', modules: [],
+      players: { thinking_space: true, experience_space: true, action_space: true } },
+    invariants: [],
+    assumptions: { profiles: {}, parameter_definitions: {} },
+    stateSchema: { variables: {}, presets: {} },
+    rules: [],
+    gates: { viability_classification: [], structural_override: { description: 'Structural violations override all gates', enforcement: 'mandatory' },
+      sustainability_threshold: 50, collapse_visual: { background: '#1a0000', text: '#ff4444', border: '#ff0000', label: 'COLLAPSED' } },
+    outcomes: { computed_outcomes: [], comparison_layout: { primary_card: '', status_badge: '', structural_indicators: [] } },
+    metadata: { format_version: '1.0.0', created_at: new Date().toISOString(), last_modified: new Date().toISOString(), authoring_method: 'manual-authoring' }
+  };
+
+  // Parse frontmatter
+  const fmMatch = md.match(/^---\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const fm = fmMatch[1];
+    const getVal = (key) => { const m = fm.match(new RegExp(key + ':\\s*(.+)')); return m ? m[1].trim() : ''; };
+    world.world.world_id = getVal('world_id');
+    world.world.name = getVal('name');
+    world.world.version = getVal('version') || '1.0.0';
+    world.world.runtime_mode = getVal('runtime_mode') || 'SIMULATION';
+    world.world.default_assumption_profile = getVal('default_profile');
+    world.world.default_alternative_profile = getVal('alternative_profile');
+  }
+
+  // Split sections
+  const sections = {};
+  let currentSection = null;
+  for (const line of md.split('\n')) {
+    const h1 = line.match(/^# (.+)/);
+    if (h1) { currentSection = h1[1].trim().toLowerCase(); sections[currentSection] = ''; continue; }
+    if (currentSection) sections[currentSection] += line + '\n';
+  }
+
+  // Thesis
+  world.world.thesis = (sections['thesis'] || '').trim();
+
+  // Invariants
+  if (sections['invariants']) {
+    for (const line of sections['invariants'].split('\n')) {
+      const m = line.match(/^- `([^`]+)` — (.+?) \((\w+), (\w+)\)/);
+      if (m) world.invariants.push({ id: m[1], label: m[2], enforcement: m[3], mutable: false });
+    }
+  }
+
+  // State
+  if (sections['state']) {
+    let varId = null;
+    const vars = {};
+    for (const line of sections['state'].split('\n')) {
+      const h2 = line.match(/^## (\w+)/);
+      if (h2) { varId = h2[1]; vars[varId] = { type: 'number', default: 0, mutable: true, label: varId, description: '' }; continue; }
+      if (!varId) continue;
+      const kv = line.match(/^- (\w+):\s*(.+)/);
+      if (kv) {
+        const [, k, v] = kv;
+        if (k === 'type') vars[varId].type = v.trim();
+        else if (k === 'min') vars[varId].min = parseFloat(v);
+        else if (k === 'max') vars[varId].max = parseFloat(v);
+        else if (k === 'step') vars[varId].step = parseFloat(v);
+        else if (k === 'default') vars[varId].default = isNaN(+v) ? v.trim() : parseFloat(v);
+        else if (k === 'label') vars[varId].label = v.trim();
+        else if (k === 'description') vars[varId].description = v.trim();
+      }
+    }
+    world.stateSchema.variables = vars;
+  }
+
+  // Assumptions
+  if (sections['assumptions']) {
+    let profId = null;
+    for (const line of sections['assumptions'].split('\n')) {
+      const h2 = line.match(/^## (\w+)/);
+      if (h2) { profId = h2[1]; world.assumptions.profiles[profId] = { name: '', description: '', parameters: {} }; continue; }
+      if (!profId) continue;
+      const kv = line.match(/^- (\w+):\s*(.+)/);
+      if (kv) {
+        const [, k, v] = kv;
+        if (k === 'name') world.assumptions.profiles[profId].name = v.trim();
+        else if (k === 'description') world.assumptions.profiles[profId].description = v.trim();
+        else world.assumptions.profiles[profId].parameters[k] = v.trim();
+      }
+    }
+    if (world.world.default_assumption_profile) {
+      const p = world.assumptions.profiles[world.world.default_assumption_profile];
+      if (p) p.is_default_baseline = true;
+    }
+  }
+
+  // Rules
+  if (sections['rules']) {
+    const ruleBlocks = sections['rules'].split(/^## /m).filter(Boolean);
+    let order = 0;
+    for (const block of ruleBlocks) {
+      const headerMatch = block.match(/^(rule-\d+):\s*(.+?)\s*\((\w+)\)/);
+      if (!headerMatch) continue;
+      const [, ruleId, label, severity] = headerMatch;
+      const lines = block.split('\n');
+      let description = '';
+      const triggers = [];
+      const effects = [];
+      let collapseCheck = null;
+      const causal = { trigger_text: '', rule_text: '', shift_text: '', effect_text: '' };
+
+      for (const line of lines) {
+        // Triggers: When field op value [source] (AND field op value [source])*
+        const whenMatch = line.match(/^When (.+)/);
+        if (whenMatch) {
+          const parts = whenMatch[1].split(/\s+AND\s+/);
+          for (const part of parts) {
+            const tm = part.match(/(\w+)\s*(==|!=|>=|<=|>|<)\s*([\w.]+)\s*\[(\w+)\]/);
+            if (tm) triggers.push({ field: tm[1], operator: tm[2], value: isNaN(+tm[3]) ? tm[3] : parseFloat(tm[3]), source: tm[4] });
+          }
+        }
+        // Effects: Then target *= value or target += value
+        const thenMatch = line.match(/^Then (\w+)\s*(\*=|\+=|-=|=)\s*([\w.]+)/);
+        if (thenMatch) {
+          const opMap = { '*=': 'multiply', '+=': 'add', '-=': 'subtract', '=': 'set' };
+          effects.push({ target: thenMatch[1], operation: opMap[thenMatch[2]] || 'set', value: isNaN(+thenMatch[3]) ? thenMatch[3] : parseFloat(thenMatch[3]) });
+        }
+        // Collapse
+        const collapseMatch = line.match(/^Collapse:\s*(\w+)\s*(==|!=|>=|<=|>|<)\s*([\w.]+)/);
+        if (collapseMatch) {
+          collapseCheck = { field: collapseMatch[1], operator: collapseMatch[2], value: parseFloat(collapseMatch[3]), result: 'MODEL_COLLAPSES' };
+        }
+        // Causal
+        const causalMatch = line.match(/^> (\w+):\s*(.+)/);
+        if (causalMatch) causal[causalMatch[1] + '_text'] = causalMatch[2];
+
+        // Description (first non-header, non-directive line)
+        if (!line.startsWith('When ') && !line.startsWith('Then ') && !line.startsWith('Collapse:') && !line.startsWith('>') && !line.match(/^rule-/) && line.trim() && !description) {
+          description = line.trim();
+        }
+      }
+
+      world.rules.push({ id: ruleId, severity, label, description, order: order++, triggers, effects, collapse_check: collapseCheck, causal_translation: causal });
+      world.world.modules.push(ruleId);
+    }
+  }
+
+  // Gates
+  if (sections['gates']) {
+    const gateColors = { 0: '#00ff41', 1: '#00cc33', 2: '#ffaa00', 3: '#ff6600', 4: '#ff4444' };
+    const gateIcons = { 0: '\u2726', 1: '\u25CF', 2: '\u25B2', 3: '\u26A0', 4: '\u2715' };
+    let gi = 0;
+    for (const line of sections['gates'].split('\n')) {
+      const gm = line.match(/^- (\w+):\s*(\w+)\s*(>=|<=|>|<|==)\s*([\d.]+)/);
+      if (gm) {
+        world.gates.viability_classification.push({
+          status: gm[1], field: gm[2], operator: gm[3], value: parseFloat(gm[4]),
+          color: gateColors[gi] || '#888', icon: gateIcons[gi] || '?'
+        });
+        gi++;
+      }
+    }
+  }
+
+  // Outcomes
+  if (sections['outcomes']) {
+    let outId = null;
+    for (const line of sections['outcomes'].split('\n')) {
+      const h2 = line.match(/^## (\w+)/);
+      if (h2) {
+        outId = h2[1];
+        world.outcomes.computed_outcomes.push({ id: outId, type: 'number', label: outId, show_in_comparison: true });
+        continue;
+      }
+      if (!outId) continue;
+      const out = world.outcomes.computed_outcomes.find(o => o.id === outId);
+      if (!out) continue;
+      const kv = line.match(/^- (\w+):\s*(.+)/);
+      if (kv) {
+        if (kv[1] === 'type') out.type = kv[2].trim();
+        if (kv[1] === 'range') { const r = kv[2].match(/([\d.-]+)-([\d.-]+)/); if (r) out.range = [parseFloat(r[1]), parseFloat(r[2])]; }
+        if (kv[1] === 'display') out.display_as = kv[2].trim();
+        if (kv[1] === 'label') out.label = kv[2].trim();
+        if (kv[1] === 'primary' && kv[2].trim() === 'true') { out.primary = true; world.outcomes.comparison_layout.primary_card = outId; }
+      }
+    }
+  }
+
+  return world;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SIMULATE ENGINE (Pure deterministic simulation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function evaluateOperator(fieldValue, operator, condValue) {
+  switch (operator) {
+    case '==': return fieldValue == condValue;
+    case '!=': return fieldValue != condValue;
+    case '>': return typeof fieldValue === 'number' && typeof condValue === 'number' && fieldValue > condValue;
+    case '<': return typeof fieldValue === 'number' && typeof condValue === 'number' && fieldValue < condValue;
+    case '>=': return typeof fieldValue === 'number' && typeof condValue === 'number' && fieldValue >= condValue;
+    case '<=': return typeof fieldValue === 'number' && typeof condValue === 'number' && fieldValue <= condValue;
+    default: return false;
+  }
+}
+
+function evaluateTriggers(triggers, state, assumptions) {
+  return triggers.every(t => {
+    const source = t.source === 'assumption' ? assumptions : state;
+    const val = source[t.field];
+    if (val === undefined) return false;
+    return evaluateOperator(val, t.operator, t.value);
+  });
+}
+
+function applyEffect(state, effect) {
+  const before = state[effect.target];
+  let after = before;
+  const val = typeof effect.value === 'number' ? effect.value : parseFloat(effect.value);
+
+  switch (effect.operation) {
+    case 'multiply': after = typeof before === 'number' ? before * val : before; break;
+    case 'add': after = typeof before === 'number' ? before + val : before; break;
+    case 'subtract': after = typeof before === 'number' ? before - val : before; break;
+    case 'set': after = val; break;
+  }
+
+  state[effect.target] = typeof after === 'number' ? Math.round(after * 100) / 100 : after;
+  return { target: effect.target, operation: effect.operation, value: effect.value, before, after: state[effect.target] };
+}
+
+function classifyViability(state, world) {
+  const gates = world.gates?.viability_classification ?? [];
+  for (const gate of gates) {
+    const val = state[gate.field];
+    if (typeof val !== 'number') continue;
+    if (evaluateOperator(val, gate.operator, gate.value)) return gate.status;
+  }
+  return 'MODEL_COLLAPSES';
+}
+
+function simulateWorld(world, options = {}) {
+  const steps = Math.min(50, Math.max(1, options.steps || 1));
+  const profile = options.profile || world.world.default_assumption_profile;
+
+  // Build initial state from schema defaults
+  const state = {};
+  for (const [k, v] of Object.entries(world.stateSchema.variables)) {
+    state[k] = v.default;
+  }
+
+  // Initialize outcome fields (primary outcome starts at 100)
+  for (const out of world.outcomes.computed_outcomes) {
+    if (out.primary && !(out.id in state)) state[out.id] = 100;
+    else if (!(out.id in state)) state[out.id] = out.default || 0;
+  }
+
+  // Apply state overrides
+  if (options.stateOverrides) {
+    for (const [k, v] of Object.entries(options.stateOverrides)) {
+      state[k] = v;
+    }
+  }
+
+  // Get assumption parameters
+  const assumptions = world.assumptions?.profiles?.[profile]?.parameters || {};
+
+  const initialState = { ...state };
+  const simSteps = [];
+  let collapsed = false;
+  let collapseStep, collapseRule;
+
+  for (let s = 0; s < steps; s++) {
+    const ruleEvals = [];
+    let firedThisStep = [];
+    let stepCollapsed = false;
+
+    for (const rule of world.rules) {
+      if (collapsed) {
+        ruleEvals.push({ ruleId: rule.id, label: rule.label, triggered: false, excluded: true, effects: [], collapsed: false, severity: rule.severity });
+        continue;
+      }
+
+      // Check exclusive_with
+      if (rule.exclusive_with && firedThisStep.includes(rule.exclusive_with)) {
+        ruleEvals.push({ ruleId: rule.id, label: rule.label, triggered: false, excluded: true, effects: [], collapsed: false, severity: rule.severity });
+        continue;
+      }
+
+      const triggered = evaluateTriggers(rule.triggers, state, assumptions);
+      const appliedEffects = [];
+
+      if (triggered) {
+        firedThisStep.push(rule.id);
+        for (const eff of (rule.effects || [])) {
+          appliedEffects.push(applyEffect(state, eff));
+        }
+
+        // Check collapse
+        if (rule.collapse_check) {
+          const cv = state[rule.collapse_check.field];
+          if (typeof cv === 'number' && evaluateOperator(cv, rule.collapse_check.operator, rule.collapse_check.value)) {
+            collapsed = true;
+            stepCollapsed = true;
+            collapseStep = s + 1;
+            collapseRule = rule.id;
+          }
+        }
+      }
+
+      ruleEvals.push({ ruleId: rule.id, label: rule.label, triggered, excluded: false, effects: appliedEffects, collapsed: stepCollapsed && triggered, severity: rule.severity });
+    }
+
+    simSteps.push({
+      step: s + 1,
+      rulesEvaluated: ruleEvals,
+      rulesFired: ruleEvals.filter(r => r.triggered).length,
+      stateAfter: { ...state },
+      viability: classifyViability(state, world),
+      collapsed: stepCollapsed
+    });
+
+    if (collapsed) break;
+  }
+
+  return {
+    worldId: world.world.world_id,
+    worldName: world.world.name,
+    profile,
+    initialState,
+    steps: simSteps,
+    finalState: { ...state },
+    finalViability: classifyViability(state, world),
+    collapsed,
+    collapseStep,
+    collapseRule
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  PRE-BUNDLED WORLDS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const BUNDLED_WORLDS = {
+  'coding-agent': {
+    name: 'Coding Agent',
+    desc: 'File writes, shell commands, git',
+    md: `---
+world_id: coding-agent
+name: Coding Agent Governance
+version: 1.0.0
+runtime_mode: COMPLIANCE
+default_profile: standard
+alternative_profile: strict
+---
+
+# Thesis
+
+Autonomous coding agents that can read files, write code, execute shell commands, and interact with version control must operate within explicit governance boundaries.
+
+# Invariants
+
+- \`no_destructive_shell_commands\` — Shell commands must not perform irreversible destructive operations (structural, immutable)
+- \`no_secret_exfiltration\` — Agent must never read or transmit secrets or API keys (structural, immutable)
+- \`no_system_file_modification\` — Agent must not modify files outside the project repository (structural, immutable)
+- \`no_direct_production_push\` — Code must never be pushed directly to main without approval (structural, immutable)
+- \`repository_boundary_enforced\` — All file operations scoped to project directory (structural, immutable)
+
+# State
+
+## files_modified
+- type: number
+- min: 0
+- max: 200
+- step: 1
+- default: 0
+- label: Files Modified
+- description: Total files modified in session
+
+## shell_commands_run
+- type: number
+- min: 0
+- max: 500
+- step: 1
+- default: 0
+- label: Shell Commands Run
+- description: Total shell commands executed
+
+## destructive_attempts
+- type: number
+- min: 0
+- max: 20
+- step: 1
+- default: 0
+- label: Destructive Attempts
+- description: Blocked destructive actions
+
+## tests_passing
+- type: number
+- min: 0
+- max: 100
+- step: 1
+- default: 100
+- label: Tests Passing
+- description: Percentage of tests passing
+
+## files_outside_repo
+- type: number
+- min: 0
+- max: 20
+- step: 1
+- default: 0
+- label: Out-of-Scope Access
+- description: File ops outside repository
+
+## secrets_detected
+- type: number
+- min: 0
+- max: 20
+- step: 1
+- default: 0
+- label: Secrets Detected
+- description: Secrets found in agent output
+
+# Assumptions
+
+## standard
+- name: Standard Development
+- description: Normal dev workflow. Safe commands allowed.
+- shell_access: safe_commands
+- file_access: project_only
+
+## strict
+- name: Strict Governance
+- description: All writes require approval. Shell limited to tests.
+- shell_access: test_only
+- file_access: read_mostly
+
+# Rules
+
+## rule-001: Destructive Shell Command (structural)
+Destructive shell commands must be blocked immediately.
+
+When destructive_attempts > 0 [state]
+Then agent_trust *= 0.00
+Collapse: agent_trust < 0.05
+
+> trigger: Agent attempted a destructive shell command.
+> rule: Destructive commands are never acceptable.
+> shift: Agent trust drops to zero. Session terminated.
+> effect: Agent trust eliminated.
+
+## rule-002: Secret Exfiltration (structural)
+Secret access must be blocked and flagged.
+
+When secrets_detected > 0 [state]
+Then agent_trust *= 0.10
+Collapse: agent_trust < 0.05
+
+> trigger: Agent accessed credentials or secrets.
+> rule: Secrets require explicit authorization.
+> shift: Agent trust drops severely.
+> effect: Agent trust reduced to 10%.
+
+## rule-003: Boundary Violation (structural)
+File operations outside the repository are forbidden.
+
+When files_outside_repo > 0 [state]
+Then agent_trust *= 0.20
+Collapse: agent_trust < 0.05
+
+> trigger: Agent accessed files outside project directory.
+> rule: Agents operate within repository scope.
+> shift: Agent trust degrades significantly.
+> effect: Agent trust reduced to 20%.
+
+## rule-004: Test Regression (degradation)
+Test failures indicate the agent is creating regressions.
+
+When tests_passing < 70 [state] AND files_modified > 0 [state]
+Then agent_trust *= 0.50
+
+> trigger: Tests dropped below 70%.
+> rule: Agents that break tests create liability.
+> shift: Agent must fix tests before continuing.
+> effect: Agent trust reduced to 50%.
+
+## rule-005: Excessive Modifications (degradation)
+Too many modifications indicate scope creep.
+
+When files_modified > 50 [state]
+Then agent_trust *= 0.70
+
+> trigger: More than 50 files modified.
+> rule: Large changes are risky and hard to review.
+> shift: Changes should be reviewed.
+> effect: Agent trust reduced to 70%.
+
+## rule-006: Clean Session (advantage)
+No destructive attempts and passing tests.
+
+When destructive_attempts == 0 [state] AND tests_passing > 90 [state] AND files_modified > 0 [state]
+Then agent_trust *= 1.20
+
+> trigger: Zero violations with passing tests.
+> rule: Trustworthy agents are rewarded.
+> shift: Session is healthy.
+> effect: Agent trust boosted 20%.
+
+## rule-007: Productive Session (advantage)
+Focused changes with good test coverage.
+
+When files_modified > 0 [state] AND files_modified < 30 [state] AND tests_passing > 85 [state]
+Then agent_trust *= 1.10
+
+> trigger: Focused changes with quality.
+> rule: Ideal workflow.
+> shift: Sustainable pace.
+> effect: Agent trust boosted 10%.
+
+# Gates
+
+- TRUSTED: agent_trust >= 90
+- PRODUCTIVE: agent_trust >= 60
+- CAUTIOUS: agent_trust >= 35
+- RESTRICTED: agent_trust > 10
+- TERMINATED: agent_trust <= 10
+
+# Outcomes
+
+## agent_trust
+- type: number
+- range: 0-100
+- display: percentage
+- label: Agent Trust
+- primary: true
+`
+  },
+  'research-agent': {
+    name: 'Research Agent',
+    desc: 'Citations, API budgets, sources',
+    md: `---
+world_id: research-agent
+name: Research Agent Governance
+version: 1.0.0
+runtime_mode: COMPLIANCE
+default_profile: conservative
+alternative_profile: exploratory
+---
+
+# Thesis
+
+AI research agents must operate within governance boundaries ensuring rigor, attribution, and responsible resource usage.
+
+# Invariants
+
+- \`sources_must_be_cited\` — Every claim must be traceable to a source (structural, immutable)
+- \`no_fabricated_citations\` — Agent must never invent sources (structural, immutable)
+- \`api_rate_limits_respected\` — Must respect rate limits on external APIs (structural, immutable)
+- \`no_unauthorized_publication\` — Findings require human review before publishing (prompt, immutable)
+
+# State
+
+## sources_consulted
+- type: number
+- min: 0
+- max: 100
+- step: 1
+- default: 0
+- label: Sources Consulted
+- description: Unique sources accessed
+
+## claims_made
+- type: number
+- min: 0
+- max: 100
+- step: 1
+- default: 0
+- label: Claims Made
+- description: Assertions produced
+
+## unsourced_claims
+- type: number
+- min: 0
+- max: 50
+- step: 1
+- default: 0
+- label: Unsourced Claims
+- description: Claims without source attribution
+
+## api_calls_made
+- type: number
+- min: 0
+- max: 10000
+- step: 10
+- default: 0
+- label: API Calls Made
+- description: External API calls made
+
+## api_budget
+- type: number
+- min: 100
+- max: 10000
+- step: 100
+- default: 5000
+- label: API Budget
+- description: Maximum API calls allowed
+
+# Assumptions
+
+## conservative
+- name: Conservative Research
+- description: Multiple sources per claim. Strict API limits.
+- source_requirement: multiple_per_claim
+- api_strictness: hard_limit
+
+## exploratory
+- name: Exploratory Research
+- description: Broader exploration. Softer limits.
+- source_requirement: at_least_one
+- api_strictness: soft_warning
+
+# Rules
+
+## rule-001: API Budget Exhausted (structural)
+No further external calls when budget exceeded.
+
+When api_calls_made > api_budget [state]
+Then research_viability *= 0.00
+Collapse: research_viability < 0.05
+
+> trigger: API budget exceeded.
+> rule: Budgets prevent abuse and cost overruns.
+> shift: Research halts for external calls.
+> effect: Viability set to zero.
+
+## rule-002: Unsourced Claims (degradation)
+Too many unsourced claims lack rigor.
+
+When unsourced_claims > 3 [state] AND claims_made > 0 [state]
+Then research_viability *= 0.40
+
+> trigger: More than 3 unsourced claims.
+> rule: Every assertion must be traceable.
+> shift: Viability drops. Agent must add citations.
+> effect: Viability reduced to 40%.
+
+## rule-003: Source Diversity (advantage)
+Many diverse sources produce quality research.
+
+When sources_consulted > 10 [state] AND unsourced_claims == 0 [state]
+Then research_viability *= 1.25
+
+> trigger: 10+ sources with zero unsourced claims.
+> rule: Diverse, cited research is gold standard.
+> shift: Viability improves.
+> effect: Viability boosted 25%.
+
+## rule-004: Shallow Research (degradation)
+Many claims from few sources.
+
+When claims_made > 10 [state] AND sources_consulted < 3 [state]
+Then research_viability *= 0.50
+
+> trigger: 10+ claims from fewer than 3 sources.
+> rule: Good research requires multiple perspectives.
+> shift: Agent should broaden sources.
+> effect: Viability reduced to 50%.
+
+# Gates
+
+- RIGOROUS: research_viability >= 85
+- SOLID: research_viability >= 60
+- DEVELOPING: research_viability >= 35
+- WEAK: research_viability > 10
+- UNRELIABLE: research_viability <= 10
+
+# Outcomes
+
+## research_viability
+- type: number
+- range: 0-100
+- display: percentage
+- label: Research Viability
+- primary: true
+`
+  },
+  'trading-agent': {
+    name: 'Trading Agent',
+    desc: 'Position limits, stop-losses, P&L',
+    md: `---
+world_id: trading-agent
+name: Trading Agent Governance
+version: 1.0.0
+runtime_mode: COMPLIANCE
+default_profile: conservative
+alternative_profile: aggressive
+---
+
+# Thesis
+
+Autonomous trading agents must operate within strict governance including position limits, stop-losses, and daily loss constraints.
+
+# Invariants
+
+- \`position_limits_enforced\` — No position may exceed maximum size (structural, immutable)
+- \`stop_loss_required\` — Every position must have a stop-loss (structural, immutable)
+- \`daily_loss_limit_enforced\` — Daily losses must not exceed the limit (structural, immutable)
+- \`audit_trail_maintained\` — Every order must be logged (structural, immutable)
+
+# State
+
+## daily_pnl
+- type: number
+- min: -20000
+- max: 20000
+- step: 100
+- default: 0
+- label: Daily P&L
+- description: Realized + unrealized profit/loss
+
+## daily_loss_limit
+- type: number
+- min: 1000
+- max: 50000
+- step: 1000
+- default: 5000
+- label: Daily Loss Limit
+- description: Max allowable daily loss
+
+## open_positions
+- type: number
+- min: 0
+- max: 50
+- step: 1
+- default: 0
+- label: Open Positions
+- description: Current open positions
+
+## max_positions
+- type: number
+- min: 1
+- max: 50
+- step: 1
+- default: 10
+- label: Max Positions
+- description: Maximum concurrent positions
+
+## largest_position_pct
+- type: number
+- min: 0
+- max: 100
+- step: 1
+- default: 0
+- label: Largest Position %
+- description: Portfolio % in largest position
+
+## positions_without_stop
+- type: number
+- min: 0
+- max: 20
+- step: 1
+- default: 0
+- label: Without Stop-Loss
+- description: Positions with no stop-loss
+
+# Assumptions
+
+## conservative
+- name: Conservative Trading
+- description: Small positions. Strict stops. Low loss tolerance.
+- max_position_pct: 5
+- daily_loss_tolerance: strict
+
+## aggressive
+- name: Aggressive Trading
+- description: Larger positions. Higher loss tolerance.
+- max_position_pct: 15
+- daily_loss_tolerance: moderate
+
+# Rules
+
+## rule-001: Loss Limit Breached (structural)
+Trading must stop when daily loss limit exceeded.
+
+When daily_pnl < 0 [state] AND daily_loss_limit > 0 [state]
+Then trading_viability *= 0.00
+Collapse: trading_viability < 0.05
+
+> trigger: Daily loss exceeds limit.
+> rule: Loss limits are absolute constraints.
+> shift: Trading halts immediately.
+> effect: Viability set to zero.
+
+## rule-002: Concentration Risk (degradation)
+Single position too large.
+
+When largest_position_pct > 20 [state]
+Then trading_viability *= 0.50
+
+> trigger: Position exceeds 20% of portfolio.
+> rule: Concentration kills portfolios.
+> shift: Agent should reduce position.
+> effect: Viability reduced to 50%.
+
+## rule-003: Naked Positions (structural)
+Positions without stop-losses are forbidden.
+
+When positions_without_stop > 0 [state]
+Then trading_viability *= 0.30
+Collapse: trading_viability < 0.05
+
+> trigger: Positions have no stop-loss.
+> rule: Every position needs a defined exit.
+> shift: Viability drops severely.
+> effect: Viability reduced to 30%.
+
+## rule-004: Over-Trading (degradation)
+Too many open positions.
+
+When open_positions > max_positions [state]
+Then trading_viability *= 0.60
+
+> trigger: Positions exceed maximum.
+> rule: Limits prevent fragmentation.
+> shift: Close positions before opening new ones.
+> effect: Viability reduced to 60%.
+
+## rule-005: Disciplined Trading (advantage)
+Profitable with proper risk controls.
+
+When daily_pnl > 0 [state] AND positions_without_stop == 0 [state] AND largest_position_pct < 15 [state]
+Then trading_viability *= 1.20
+
+> trigger: Positive P&L with risk controls in place.
+> rule: Disciplined trading is rewarded.
+> shift: Agent can continue strategy.
+> effect: Viability boosted 20%.
+
+## rule-006: Good Diversification (advantage)
+Small, distributed positions with stops.
+
+When open_positions > 3 [state] AND largest_position_pct < 10 [state] AND positions_without_stop == 0 [state]
+Then trading_viability *= 1.15
+
+> trigger: Multiple small positions, all with stops.
+> rule: Textbook diversification.
+> shift: Portfolio well-structured.
+> effect: Viability boosted 15%.
+
+# Gates
+
+- OPTIMAL: trading_viability >= 90
+- HEALTHY: trading_viability >= 60
+- CAUTIOUS: trading_viability >= 35
+- AT_RISK: trading_viability > 10
+- HALTED: trading_viability <= 10
+
+# Outcomes
+
+## trading_viability
+- type: number
+- range: 0-100
+- display: percentage
+- label: Trading Viability
+- primary: true
+`
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UI CONTROLLER
+// ═══════════════════════════════════════════════════════════════════════════
+
+let currentWorld = null;
+let currentWorldDef = null;
+let customMode = false;
+
+const worldTabsEl = document.getElementById('world-tabs');
+const customToggleEl = document.getElementById('custom-toggle');
+const customTextareaEl = document.getElementById('custom-textarea');
+const profileSelectEl = document.getElementById('profile-select');
+const stateSlidersEl = document.getElementById('state-sliders');
+const stepsSliderEl = document.getElementById('steps-slider');
+const stepsValEl = document.getElementById('steps-val');
+const simulateBtnEl = document.getElementById('simulate-btn');
+const simOutputEl = document.getElementById('sim-output');
+const viabilityRingEl = document.getElementById('viability-ring');
+const viabilityValueEl = document.getElementById('viability-value');
+const gateBadgeEl = document.getElementById('gate-badge');
+const statsGridEl = document.getElementById('stats-grid');
+const collapseBannerEl = document.getElementById('collapse-banner');
+const collapseDetailEl = document.getElementById('collapse-detail');
+const invariantListEl = document.getElementById('invariant-list');
+
+// Build world tabs
+for (const [id, w] of Object.entries(BUNDLED_WORLDS)) {
+  const btn = document.createElement('button');
+  btn.className = 'world-tab';
+  btn.dataset.world = id;
+  btn.innerHTML = `<span class="tab-name">${w.name}</span><span class="tab-desc">${w.desc}</span>`;
+  btn.onclick = () => selectWorld(id);
+  worldTabsEl.appendChild(btn);
+}
+
+customToggleEl.onclick = () => {
+  customMode = !customMode;
+  customTextareaEl.classList.toggle('visible', customMode);
+  if (customMode) {
+    document.querySelectorAll('.world-tab').forEach(t => t.classList.remove('active'));
+    customToggleEl.textContent = '- hide custom editor';
+  } else {
+    customToggleEl.textContent = '+ paste custom .nv-world.md';
+    if (currentWorld) selectWorld(currentWorld);
+  }
+};
+
+customTextareaEl.oninput = () => {
+  if (customMode && customTextareaEl.value.trim()) {
+    try {
+      currentWorldDef = parseWorldMarkdown(customTextareaEl.value);
+      currentWorld = 'custom';
+      buildControls(currentWorldDef);
+    } catch (e) { /* ignore parse errors while typing */ }
+  }
+};
+
+stepsSliderEl.oninput = () => {
+  stepsValEl.textContent = stepsSliderEl.value;
+};
+
+function selectWorld(id) {
+  currentWorld = id;
+  customMode = false;
+  customTextareaEl.classList.remove('visible');
+  customToggleEl.textContent = '+ paste custom .nv-world.md';
+  document.querySelectorAll('.world-tab').forEach(t => t.classList.toggle('active', t.dataset.world === id));
+  currentWorldDef = parseWorldMarkdown(BUNDLED_WORLDS[id].md);
+  buildControls(currentWorldDef);
+}
+
+function buildControls(world) {
+  // Profiles
+  profileSelectEl.innerHTML = '';
+  for (const [pid, prof] of Object.entries(world.assumptions.profiles)) {
+    const opt = document.createElement('option');
+    opt.value = pid;
+    opt.textContent = prof.name || pid;
+    if (pid === world.world.default_assumption_profile) opt.selected = true;
+    profileSelectEl.appendChild(opt);
+  }
+
+  // State sliders
+  stateSlidersEl.innerHTML = '';
+  for (const [vid, v] of Object.entries(world.stateSchema.variables)) {
+    const group = document.createElement('div');
+    group.className = 'slider-group';
+    const min = v.min ?? 0;
+    const max = v.max ?? 100;
+    const step = v.step ?? 1;
+    const def = v.default ?? 0;
+    group.innerHTML = `
+      <div class="state-label-row">
+        <span class="state-label">${v.label || vid}</span>
+        <span class="state-value" id="sv-${vid}">${def}</span>
+      </div>
+      <input type="range" id="slider-${vid}" min="${min}" max="${max}" step="${step}" value="${def}" data-var="${vid}">
+    `;
+    stateSlidersEl.appendChild(group);
+
+    const slider = group.querySelector('input');
+    const display = group.querySelector('.state-value');
+    slider.oninput = () => { display.textContent = slider.value; };
+  }
+
+  // Invariants
+  invariantListEl.innerHTML = '';
+  for (const inv of world.invariants) {
+    const li = document.createElement('li');
+    li.textContent = inv.label;
+    invariantListEl.appendChild(li);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SIMULATE + ANIMATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+simulateBtnEl.onclick = async () => {
+  if (!currentWorldDef) return;
+
+  simulateBtnEl.classList.add('running');
+  simulateBtnEl.textContent = 'Simulating...';
+  simOutputEl.innerHTML = '';
+  gateBadgeEl.classList.remove('visible');
+  collapseBannerEl.classList.remove('visible');
+  statsGridEl.innerHTML = '';
+
+  // Collect state overrides
+  const overrides = {};
+  for (const slider of stateSlidersEl.querySelectorAll('input[type="range"]')) {
+    const vid = slider.dataset.var;
+    const val = parseFloat(slider.value);
+    overrides[vid] = val;
+  }
+
+  const result = simulateWorld(currentWorldDef, {
+    steps: parseInt(stepsSliderEl.value),
+    stateOverrides: overrides,
+    profile: profileSelectEl.value,
+  });
+
+  // Animate steps one by one
+  for (let i = 0; i < result.steps.length; i++) {
+    const step = result.steps[i];
+    const card = document.createElement('div');
+    card.className = 'step-card';
+
+    // Find primary outcome
+    const primaryOut = currentWorldDef.outcomes.computed_outcomes.find(o => o.primary);
+    const primaryField = primaryOut ? primaryOut.id : null;
+    const primaryVal = primaryField ? step.stateAfter[primaryField] : null;
+
+    card.innerHTML = `
+      <div class="step-header">
+        <span class="step-number">STEP ${step.step}</span>
+        <span class="step-viability ${step.viability}">${step.viability}${primaryVal !== null ? ` (${Math.round(primaryVal)}%)` : ''}</span>
+      </div>
+      <div class="step-rules">
+        ${step.rulesEvaluated.map(r => {
+          const icon = r.excluded ? '<span class="rule-icon excluded">-</span>'
+            : r.triggered ? '<span class="rule-icon fired">\u26A1</span>'
+            : '<span class="rule-icon pass">\u00B7</span>';
+          const cls = r.triggered ? 'fired' : '';
+          const effectStr = r.effects.length > 0
+            ? r.effects.map(e => {
+                const pct = e.operation === 'multiply' ? `${Math.round(e.value * 100)}%` : `${e.operation} ${e.value}`;
+                return `<span class="rule-effect ${r.severity}">${e.target} \u2192 ${pct}</span>`;
+              }).join(' ')
+            : '';
+          return `<div class="rule-row">${icon}<span class="rule-label ${cls}">${r.label}</span>${effectStr}</div>`;
+        }).join('')}
+      </div>
+      <div class="step-state">
+        ${Object.entries(step.stateAfter)
+          .filter(([k]) => k in currentWorldDef.stateSchema.variables || (primaryField && k === primaryField))
+          .map(([k, v]) => {
+            const prev = i > 0 ? result.steps[i-1].stateAfter[k] : result.initialState[k];
+            const changed = prev !== undefined && prev !== v;
+            const label = currentWorldDef.stateSchema.variables[k]?.label || k;
+            return `<span class="state-chip">${label}: <span class="val ${changed ? 'changed' : ''}">${typeof v === 'number' ? Math.round(v * 100) / 100 : v}</span></span>`;
+          }).join('')}
+      </div>
+    `;
+
+    simOutputEl.appendChild(card);
+    await sleep(120);
+    card.classList.add('visible');
+    await sleep(80);
+
+    // Update ring progressively
+    if (primaryField && primaryVal !== null) {
+      updateRing(Math.round(primaryVal), step.viability);
+    }
+  }
+
+  // Final verdict
+  await sleep(200);
+
+  const finalPrimary = currentWorldDef.outcomes.computed_outcomes.find(o => o.primary);
+  const finalVal = finalPrimary ? Math.round(result.finalState[finalPrimary.id] ?? 0) : 0;
+
+  updateRing(finalVal, result.finalViability);
+
+  gateBadgeEl.textContent = result.finalViability;
+  gateBadgeEl.className = `gate-badge ${result.finalViability} visible`;
+
+  // Stats
+  const totalFired = result.steps.reduce((s, st) => s + st.rulesFired, 0);
+  const totalRules = result.steps.reduce((s, st) => s + st.rulesEvaluated.length, 0);
+
+  statsGridEl.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Steps</div>
+      <div class="stat-value">${result.steps.length}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Rules Fired</div>
+      <div class="stat-value ${totalFired > 5 ? 'warning' : ''}">${totalFired}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Final Score</div>
+      <div class="stat-value ${finalVal < 35 ? 'danger' : finalVal < 60 ? 'warning' : ''}">${finalVal}%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collapsed</div>
+      <div class="stat-value ${result.collapsed ? 'danger' : ''}">${result.collapsed ? 'YES' : 'NO'}</div>
+    </div>
+  `;
+
+  if (result.collapsed) {
+    collapseBannerEl.classList.add('visible');
+    collapseDetailEl.textContent = `Collapsed at step ${result.collapseStep} by ${result.collapseRule}`;
+  }
+
+  simulateBtnEl.classList.remove('running');
+  simulateBtnEl.textContent = 'Simulate';
+};
+
+function updateRing(value, viability) {
+  const circumference = 2 * Math.PI * 70; // r=70
+  const offset = circumference - (value / 100) * circumference;
+  viabilityRingEl.style.strokeDashoffset = offset;
+
+  const color = value >= 60 ? 'var(--green)' : value >= 35 ? 'var(--amber)' : 'var(--red)';
+  viabilityRingEl.style.stroke = color;
+  viabilityRingEl.style.filter = `drop-shadow(0 0 6px ${color === 'var(--green)' ? 'var(--green-glow)' : color === 'var(--amber)' ? '#ffaa0060' : 'var(--red-glow)'})`;
+
+  viabilityValueEl.textContent = value + '%';
+  viabilityValueEl.style.color = color;
+  viabilityValueEl.style.textShadow = `0 0 20px ${color === 'var(--green)' ? 'var(--green-glow)' : color === 'var(--amber)' ? '#ffaa0060' : 'var(--red-glow)'}`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Auto-select first world
+selectWorld('coding-agent');
+
+</script>
+</body>
+</html>
