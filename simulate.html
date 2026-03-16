@@ -645,6 +645,202 @@
     min-width: 20px;
     text-align: right;
   }
+
+  /* ─── AI Adapter ─── */
+  .ai-adapter-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .ai-select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+
+  .ai-select:focus { outline: none; border-color: var(--green-dark); }
+
+  .ai-select option { background: var(--bg-card); color: var(--text); }
+
+  .ai-config {
+    margin-top: 8px;
+    display: none;
+  }
+
+  .ai-config.visible { display: block; }
+
+  .ai-endpoint {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--green-dim);
+    font-family: inherit;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+
+  .ai-endpoint:focus { outline: none; border-color: var(--green-dark); }
+
+  .ai-status {
+    font-size: 10px;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ai-status .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+
+  .ai-status .status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
+  .ai-status .status-dot.disconnected { background: var(--red); }
+  .ai-status .status-text { color: var(--text-dim); }
+
+  .ai-badge {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .ai-badge.active { border-color: var(--cyan); color: var(--cyan); }
+
+  /* ─── AI Explanation Panel ─── */
+  .ai-explanation {
+    margin-top: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--cyan);
+    border-radius: 3px;
+    padding: 14px;
+    display: none;
+  }
+
+  .ai-explanation.visible { display: block; }
+
+  .ai-explanation-header {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ai-explanation-body {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+
+  .ai-explanation-body strong { color: var(--text); font-weight: 500; }
+
+  .ai-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--cyan);
+    padding: 10px 0;
+  }
+
+  .ai-thinking .dots span {
+    animation: dot-pulse 1.4s infinite both;
+    opacity: 0.2;
+  }
+
+  .ai-thinking .dots span:nth-child(1) { animation-delay: 0s; }
+  .ai-thinking .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .ai-thinking .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dot-pulse {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+
+  /* ─── Explore Button ─── */
+  .explore-btn {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--cyan);
+    border-radius: 3px;
+    color: var(--cyan);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+    display: none;
+  }
+
+  .explore-btn.visible { display: block; }
+  .explore-btn:hover { background: #00d4ff10; box-shadow: 0 0 15px #00d4ff20; }
+
+  .explore-results {
+    margin-top: 8px;
+    display: none;
+  }
+
+  .explore-results.visible { display: block; }
+
+  .explore-result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .explore-result-card:hover {
+    border-color: var(--cyan);
+    background: #00d4ff08;
+  }
+
+  .explore-result-card .scenario-name {
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .explore-result-card .scenario-outcome {
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .explore-result-card .scenario-score {
+    float: right;
+    font-weight: 700;
+  }
+
+  .explore-result-card .scenario-score.good { color: var(--green); }
+  .explore-result-card .scenario-score.warn { color: var(--amber); }
+  .explore-result-card .scenario-score.bad { color: var(--red); }
 </style>
 </head>
 <body>
@@ -655,7 +851,7 @@
   <div class="header">
     <h1>NeuroVerse Simulation Engine</h1>
     <div class="subtitle">Deterministic World Governance</div>
-    <div class="powered">powered by MiroFish</div>
+    <div class="powered">neuroverseos.com <span id="ai-header-badge"></span></div>
   </div>
 
   <div class="grid">
@@ -681,7 +877,25 @@
           <span class="steps-val" id="steps-val">5</span>
         </div>
 
+        <div class="ai-adapter-section">
+          <div class="section-divider">AI Adapter <span class="ai-badge" id="ai-badge">optional</span></div>
+          <select class="ai-select" id="ai-select">
+            <option value="none">None (deterministic only)</option>
+            <option value="mirofish">MiroFish</option>
+            <option value="openai">OpenAI</option>
+            <option value="local">Local LLM</option>
+          </select>
+          <div class="ai-config" id="ai-config">
+            <input type="text" class="ai-endpoint" id="ai-endpoint" placeholder="http://localhost:8080/v1">
+            <div class="ai-status" id="ai-status">
+              <span class="status-dot disconnected" id="ai-dot"></span>
+              <span class="status-text" id="ai-status-text">not connected</span>
+            </div>
+          </div>
+        </div>
+
         <button class="simulate-btn" id="simulate-btn">Simulate</button>
+        <button class="explore-btn" id="explore-btn">Explore State Space</button>
       </div>
     </div>
 
@@ -720,6 +934,16 @@
         </div>
 
         <ul class="invariant-list" id="invariant-list"></ul>
+
+        <div class="ai-explanation" id="ai-explanation">
+          <div class="ai-explanation-header">
+            <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5v3M6 8.5v0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            AI Analysis
+          </div>
+          <div class="ai-explanation-body" id="ai-explanation-body"></div>
+        </div>
+
+        <div class="explore-results" id="explore-results"></div>
       </div>
     </div>
   </div>
@@ -1641,6 +1865,8 @@ Then trading_viability *= 1.15
 let currentWorld = null;
 let currentWorldDef = null;
 let customMode = false;
+let aiAdapter = 'none';
+let aiEndpoint = '';
 
 const worldTabsEl = document.getElementById('world-tabs');
 const customToggleEl = document.getElementById('custom-toggle');
@@ -1658,6 +1884,17 @@ const statsGridEl = document.getElementById('stats-grid');
 const collapseBannerEl = document.getElementById('collapse-banner');
 const collapseDetailEl = document.getElementById('collapse-detail');
 const invariantListEl = document.getElementById('invariant-list');
+const aiSelectEl = document.getElementById('ai-select');
+const aiConfigEl = document.getElementById('ai-config');
+const aiEndpointEl = document.getElementById('ai-endpoint');
+const aiBadgeEl = document.getElementById('ai-badge');
+const aiDotEl = document.getElementById('ai-dot');
+const aiStatusTextEl = document.getElementById('ai-status-text');
+const aiExplanationEl = document.getElementById('ai-explanation');
+const aiExplanationBodyEl = document.getElementById('ai-explanation-body');
+const aiHeaderBadgeEl = document.getElementById('ai-header-badge');
+const exploreBtnEl = document.getElementById('explore-btn');
+const exploreResultsEl = document.getElementById('explore-results');
 
 // Build world tabs
 for (const [id, w] of Object.entries(BUNDLED_WORLDS)) {
@@ -1694,6 +1931,153 @@ customTextareaEl.oninput = () => {
 stepsSliderEl.oninput = () => {
   stepsValEl.textContent = stepsSliderEl.value;
 };
+
+// ─── AI Adapter Controls ──────────────────────────────────────────────────
+
+const AI_LABELS = { none: 'None', mirofish: 'MiroFish', openai: 'OpenAI', local: 'Local LLM' };
+const AI_DEFAULTS = { mirofish: 'http://localhost:11434/v1', openai: 'https://api.openai.com/v1', local: 'http://localhost:8080/v1' };
+
+aiSelectEl.onchange = () => {
+  aiAdapter = aiSelectEl.value;
+  const active = aiAdapter !== 'none';
+  aiConfigEl.classList.toggle('visible', active);
+  exploreBtnEl.classList.toggle('visible', active);
+  aiBadgeEl.textContent = active ? AI_LABELS[aiAdapter] : 'optional';
+  aiBadgeEl.classList.toggle('active', active);
+  aiHeaderBadgeEl.innerHTML = active ? `<span class="ai-badge active">${AI_LABELS[aiAdapter]}</span>` : '';
+
+  if (active && AI_DEFAULTS[aiAdapter]) {
+    aiEndpointEl.value = AI_DEFAULTS[aiAdapter];
+    aiEndpointEl.placeholder = AI_DEFAULTS[aiAdapter];
+  }
+
+  // Reset connection status
+  aiDotEl.className = 'status-dot disconnected';
+  aiStatusTextEl.textContent = active ? 'not connected' : '';
+  aiExplanationEl.classList.remove('visible');
+};
+
+aiEndpointEl.onchange = () => {
+  aiEndpoint = aiEndpointEl.value.trim();
+  if (aiEndpoint) {
+    aiDotEl.className = 'status-dot connected';
+    aiStatusTextEl.textContent = 'endpoint set';
+  }
+};
+
+// ─── AI Adapter Interface ──────────────────────────────────────────────────
+
+/**
+ * AI Adapter — Plugin Interface
+ *
+ * NeuroVerse is the deterministic rule engine (always runs locally).
+ * AI adapters are OPTIONAL plugins that provide:
+ *   1. explain(result)     → natural language analysis of simulation results
+ *   2. explore(world, constraints) → optimal state configurations
+ *   3. scenarios(world)    → realistic test scenarios
+ *
+ * Architecture (AGPL-safe):
+ *   UI → simulateWorld()       (local, deterministic, Apache-2.0)
+ *      → AI adapter            (optional, separate process, any license)
+ *         → MiroFish           (AGPL — runs as separate service)
+ *         → OpenAI             (proprietary — API call)
+ *         → Local LLM          (any — user's choice)
+ *
+ * The AI never touches the governance engine.
+ * It only reads simulation results and generates explanations.
+ */
+async function aiExplain(result, world) {
+  if (aiAdapter === 'none' || !aiEndpoint) return null;
+
+  const prompt = buildExplainPrompt(result, world);
+
+  try {
+    const resp = await fetch(aiEndpoint + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: aiAdapter === 'mirofish' ? 'mirofish' : aiAdapter === 'openai' ? 'gpt-4o-mini' : 'default',
+        messages: [
+          { role: 'system', content: 'You are a governance analyst. Analyze simulation results concisely. Use 2-3 short paragraphs. Bold key terms with **term**. No markdown headers.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch {
+    return null;
+  }
+}
+
+async function aiExplore(world, overrides) {
+  if (aiAdapter === 'none' || !aiEndpoint) return null;
+
+  const vars = Object.entries(world.stateSchema.variables)
+    .map(([k, v]) => `${k}: ${v.type}, range ${v.min ?? 0}-${v.max ?? 100}, default ${v.default}`)
+    .join('\n');
+
+  const rules = world.rules.map(r => `${r.id}: ${r.label} (${r.severity})`).join('\n');
+  const gates = world.gates.viability_classification.map(g => `${g.status}: ${g.field} ${g.operator} ${g.value}`).join('\n');
+
+  const prompt = `Given this governance world:
+Variables:\n${vars}\n
+Rules:\n${rules}\n
+Gates:\n${gates}\n
+Current overrides: ${JSON.stringify(overrides)}
+
+Generate exactly 4 interesting scenarios as JSON array. Each scenario: { "name": "short name", "description": "1 sentence", "overrides": { variable: value } }
+Return ONLY the JSON array, no markdown.`;
+
+  try {
+    const resp = await fetch(aiEndpoint + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: aiAdapter === 'mirofish' ? 'mirofish' : aiAdapter === 'openai' ? 'gpt-4o-mini' : 'default',
+        messages: [
+          { role: 'system', content: 'You generate governance simulation scenarios. Return ONLY valid JSON arrays.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content || '[]';
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    return jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildExplainPrompt(result, world) {
+  const firedRules = [];
+  for (const step of result.steps) {
+    for (const r of step.rulesEvaluated) {
+      if (r.triggered) firedRules.push(`Step ${step.step}: ${r.label} (${r.severity}) fired${r.effects.length ? ' → ' + r.effects.map(e => `${e.target} ${e.operation} ${e.value}`).join(', ') : ''}`);
+    }
+  }
+
+  return `World: ${result.worldName} (${result.worldId})
+Profile: ${result.profile}
+Steps: ${result.steps.length}
+Final viability: ${result.finalViability}
+Collapsed: ${result.collapsed}${result.collapseRule ? ` at step ${result.collapseStep} by ${result.collapseRule}` : ''}
+
+Initial state: ${JSON.stringify(result.initialState)}
+Final state: ${JSON.stringify(result.finalState)}
+
+Rules that fired:
+${firedRules.join('\n') || 'None'}
+
+Invariants: ${world.invariants.map(i => i.label).join('; ')}
+
+Explain what happened, why, and what the agent should do differently.`;
+}
 
 function selectWorld(id) {
   currentWorld = id;
@@ -1871,6 +2255,77 @@ simulateBtnEl.onclick = async () => {
 
   simulateBtnEl.classList.remove('running');
   simulateBtnEl.textContent = 'Simulate';
+
+  // ─── Optional AI Analysis (runs after deterministic simulation) ────────
+  aiExplanationEl.classList.remove('visible');
+  if (aiAdapter !== 'none' && aiEndpoint) {
+    aiExplanationEl.classList.add('visible');
+    aiExplanationBodyEl.innerHTML = `<div class="ai-thinking">${AI_LABELS[aiAdapter]} analyzing<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>`;
+
+    const explanation = await aiExplain(result, currentWorldDef);
+    if (explanation) {
+      // Convert **bold** to <strong>
+      const formatted = explanation.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+      aiExplanationBodyEl.innerHTML = formatted;
+    } else {
+      aiExplanationBodyEl.innerHTML = '<span style="color:var(--text-dim)">AI adapter did not respond. Check endpoint connection.</span>';
+    }
+  }
+};
+
+// ─── Explore State Space (AI-powered) ─────────────────────────────────────
+
+exploreBtnEl.onclick = async () => {
+  if (!currentWorldDef || aiAdapter === 'none') return;
+
+  exploreBtnEl.textContent = 'Exploring...';
+  exploreResultsEl.innerHTML = '';
+  exploreResultsEl.classList.remove('visible');
+
+  const overrides = {};
+  for (const slider of stateSlidersEl.querySelectorAll('input[type="range"]')) {
+    overrides[slider.dataset.var] = parseFloat(slider.value);
+  }
+
+  const scenarios = await aiExplore(currentWorldDef, overrides);
+
+  if (scenarios && scenarios.length > 0) {
+    exploreResultsEl.classList.add('visible');
+    for (const scenario of scenarios) {
+      // Run simulation for this scenario
+      const scenarioResult = simulateWorld(currentWorldDef, {
+        steps: parseInt(stepsSliderEl.value),
+        stateOverrides: scenario.overrides || {},
+        profile: profileSelectEl.value,
+      });
+
+      const primaryOut = currentWorldDef.outcomes.computed_outcomes.find(o => o.primary);
+      const score = primaryOut ? Math.round(scenarioResult.finalState[primaryOut.id] ?? 0) : 0;
+      const scoreClass = score >= 60 ? 'good' : score >= 35 ? 'warn' : 'bad';
+
+      const card = document.createElement('div');
+      card.className = 'explore-result-card';
+      card.innerHTML = `
+        <div class="scenario-name">${scenario.name} <span class="scenario-score ${scoreClass}">${score}%</span></div>
+        <div class="scenario-outcome">${scenario.description || scenarioResult.finalViability}</div>
+      `;
+
+      // Click to apply scenario overrides to sliders
+      card.onclick = () => {
+        if (scenario.overrides) {
+          for (const [k, v] of Object.entries(scenario.overrides)) {
+            const slider = document.getElementById('slider-' + k);
+            const display = document.getElementById('sv-' + k);
+            if (slider) { slider.value = v; if (display) display.textContent = v; }
+          }
+        }
+      };
+
+      exploreResultsEl.appendChild(card);
+    }
+  }
+
+  exploreBtnEl.textContent = 'Explore State Space';
 };
 
 function updateRing(value, viability) {
