@@ -38,9 +38,16 @@ export interface ImpactReport {
   totalBlocked: number;
   totalPaused: number;
   totalAllowed: number;
+  totalModified: number;
+  totalPenalized: number;
+  totalRewarded: number;
+  totalNeutral: number;
 
-  /** Prevention rate: (blocked + paused) / total */
+  /** Prevention rate: (blocked + paused + modified + penalized) / total */
   preventionRate: number;
+
+  /** Redirection rate: everything not ALLOW/NEUTRAL */
+  redirectionRate: number;
 
   /** Blocked actions grouped by category */
   preventedByCategory: PreventionCategory[];
@@ -80,7 +87,11 @@ export function generateImpactReport(events: AuditEvent[]): ImpactReport {
 
   const blocked = events.filter(e => e.decision === 'BLOCK');
   const paused = events.filter(e => e.decision === 'PAUSE');
-  const prevented = [...blocked, ...paused];
+  const modified = events.filter(e => e.decision === 'MODIFY');
+  const penalized = events.filter(e => e.decision === 'PENALIZE');
+  const rewarded = events.filter(e => e.decision === 'REWARD');
+  const neutralEvents = events.filter(e => e.decision === 'NEUTRAL');
+  const prevented = [...blocked, ...paused, ...modified, ...penalized];
 
   // ─── Prevented by category ──────────────────────────────────────────
   const categoryMap = new Map<string, Set<string>>();
@@ -193,6 +204,9 @@ export function generateImpactReport(events: AuditEvent[]): ImpactReport {
     .sort((a, b) => b.attempts - a.attempts)
     .slice(0, 10);
 
+  const allowedCount = events.filter(e => e.decision === 'ALLOW').length;
+  const redirected = events.length - allowedCount - neutralEvents.length;
+
   return {
     generatedAt: new Date().toISOString(),
     periodStart: events[0].timestamp,
@@ -201,8 +215,13 @@ export function generateImpactReport(events: AuditEvent[]): ImpactReport {
     totalEvaluations: events.length,
     totalBlocked: blocked.length,
     totalPaused: paused.length,
-    totalAllowed: events.length - blocked.length - paused.length,
-    preventionRate: prevented.length / events.length,
+    totalAllowed: allowedCount,
+    totalModified: modified.length,
+    totalPenalized: penalized.length,
+    totalRewarded: rewarded.length,
+    totalNeutral: neutralEvents.length,
+    preventionRate: events.length > 0 ? prevented.length / events.length : 0,
+    redirectionRate: events.length > 0 ? redirected / events.length : 0,
     preventedByCategory,
     topPreventedIntents,
     hotActors,
@@ -255,8 +274,13 @@ export function renderImpactReport(report: ImpactReport): string {
   lines.push(`  Total evaluations:   ${report.totalEvaluations}`);
   lines.push(`  Allowed:             ${report.totalAllowed}`);
   lines.push(`  Blocked:             ${report.totalBlocked}`);
+  lines.push(`  Modified:            ${report.totalModified}`);
   lines.push(`  Paused:              ${report.totalPaused}`);
+  lines.push(`  Penalized:           ${report.totalPenalized}`);
+  lines.push(`  Rewarded:            ${report.totalRewarded}`);
+  lines.push(`  Neutral:             ${report.totalNeutral}`);
   lines.push(`  Prevention rate:     ${(report.preventionRate * 100).toFixed(1)}%`);
+  lines.push(`  Redirection rate:    ${(report.redirectionRate * 100).toFixed(1)}%`);
   lines.push('');
 
   // ─── Without governance ─────────────────────────────────────────────
@@ -339,7 +363,12 @@ function emptyReport(): ImpactReport {
     totalBlocked: 0,
     totalPaused: 0,
     totalAllowed: 0,
+    totalModified: 0,
+    totalPenalized: 0,
+    totalRewarded: 0,
+    totalNeutral: 0,
     preventionRate: 0,
+    redirectionRate: 0,
     preventedByCategory: [],
     topPreventedIntents: [],
     hotActors: [],

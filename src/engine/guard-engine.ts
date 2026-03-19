@@ -44,6 +44,10 @@ import type {
   KernelRuleCheck,
   LevelCheck,
   PrecedenceResolution,
+  Consequence,
+  Reward,
+  IntentRecord,
+  AgentBehaviorState,
 } from '../contracts/guard-contract';
 import type { PlanCheck } from '../contracts/plan-contract';
 import { evaluatePlan, buildPlanCheck } from './plan-engine';
@@ -201,6 +205,34 @@ export function evaluateGuard(
   // ─── Phase 0: Invariant coverage (world health, not verdict) ─────────
   checkInvariantCoverage(world, invariantChecks);
 
+  // ─── Phase 0.25: Agent cooldown check ───────────────────────────────
+  // Penalized agents in cooldown are blocked before any other evaluation.
+  if (event.roleId && options.agentStates) {
+    const agentState = options.agentStates.get(event.roleId);
+    if (agentState && agentState.cooldownRemaining > 0) {
+      decidingLayer = 'safety';
+      decidingId = `penalize-cooldown-${event.roleId}`;
+      const verdict = buildVerdict(
+        'PENALIZE',
+        `Agent "${event.roleId}" is frozen for ${agentState.cooldownRemaining} more round(s) due to prior penalty.`,
+        `penalize-cooldown-${event.roleId}`,
+        undefined,
+        world, level, invariantChecks, guardsMatched, rulesMatched,
+        includeTrace ? buildTrace(
+          invariantChecks, safetyChecks, planCheckResult, roleChecks, guardChecks,
+          kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
+        ) : undefined,
+      );
+      verdict.intentRecord = {
+        originalIntent: event.intent,
+        finalAction: 'blocked (agent frozen)',
+        enforcement: 'PENALIZE',
+        consequence: { type: 'freeze', rounds: agentState.cooldownRemaining, description: 'Agent still in cooldown from prior penalty' },
+      };
+      return verdict;
+    }
+  }
+
   // ─── Phase 0.5: Session allowlist ─────────────────────────────────────
   if (options.sessionAllowlist) {
     const key = eventToAllowlistKey(event);
@@ -295,7 +327,23 @@ export function evaluateGuard(
     if (guardVerdict.status !== 'ALLOW') {
       decidingLayer = 'guard';
       decidingId = guardVerdict.ruleId;
-      return buildVerdict(
+
+      // Build intent record for behavioral enforcement types
+      const intentRecord: IntentRecord = {
+        originalIntent: event.intent,
+        finalAction: guardVerdict.status === 'MODIFY' ? (guardVerdict.modifiedTo ?? 'modified') :
+                     guardVerdict.status === 'PENALIZE' ? 'blocked + penalized' :
+                     guardVerdict.status === 'REWARD' ? event.intent :
+                     guardVerdict.status === 'NEUTRAL' ? event.intent :
+                     guardVerdict.status === 'BLOCK' ? 'blocked' : 'paused',
+        ruleApplied: guardVerdict.ruleId,
+        enforcement: guardVerdict.status,
+        modifiedTo: guardVerdict.modifiedTo,
+        consequence: guardVerdict.consequence,
+        reward: guardVerdict.reward,
+      };
+
+      const verdict = buildVerdict(
         guardVerdict.status,
         guardVerdict.reason,
         guardVerdict.ruleId,
@@ -306,6 +354,13 @@ export function evaluateGuard(
           kernelRuleChecks, levelChecks, decidingLayer, decidingId, startTime,
         ) : undefined,
       );
+
+      // Attach behavioral enforcement data
+      verdict.intentRecord = intentRecord;
+      if (guardVerdict.consequence) verdict.consequence = guardVerdict.consequence;
+      if (guardVerdict.reward) verdict.reward = guardVerdict.reward;
+
+      return verdict;
     }
     // ALLOW with warning — continue chain but remember the warning
   }
@@ -581,7 +636,7 @@ function checkGuards(
   world: WorldDefinition,
   checks: GuardCheck[],
   guardsMatched: string[],
-): { status: GuardStatus; reason?: string; ruleId?: string; warning?: string } | null {
+): { status: GuardStatus; reason?: string; ruleId?: string; warning?: string; consequence?: Consequence; reward?: Reward; modifiedTo?: string } | null {
   if (!world.guards) return null;
 
   const guardsConfig = world.guards;
@@ -665,6 +720,25 @@ function checkGuards(
     }
     if (actionMode === 'pause') {
       return { status: 'PAUSE', reason, ruleId: `guard-${guard.id}` };
+    }
+    if (actionMode === 'penalize') {
+      const consequence: Consequence = guard.consequence
+        ? { ...guard.consequence }
+        : { type: 'freeze', rounds: 1, description: `Penalized for violating: ${guard.label}` };
+      return { status: 'PENALIZE', reason, ruleId: `guard-${guard.id}`, consequence };
+    }
+    if (actionMode === 'reward') {
+      const reward: Reward = guard.reward
+        ? { ...guard.reward }
+        : { type: 'boost_influence', magnitude: 0.1, description: `Rewarded for: ${guard.label}` };
+      return { status: 'REWARD', reason, ruleId: `guard-${guard.id}`, reward };
+    }
+    if (actionMode === 'modify') {
+      const modifiedTo = guard.modify_to ?? guard.redirect ?? 'hold';
+      return { status: 'MODIFY', reason: `${reason} → Modified to: ${modifiedTo}`, ruleId: `guard-${guard.id}`, modifiedTo };
+    }
+    if (actionMode === 'neutral') {
+      return { status: 'NEUTRAL', reason, ruleId: `guard-${guard.id}` };
     }
     if (actionMode === 'warn' && !warnResult) {
       // Capture first warning, continue checking for BLOCK/PAUSE

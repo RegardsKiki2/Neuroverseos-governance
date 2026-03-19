@@ -31,6 +31,10 @@ export type {
   LevelCheck,
   PrecedenceResolution,
   GuardExitCode,
+  Consequence,
+  Reward,
+  AgentBehaviorState,
+  IntentRecord,
 } from './contracts/guard-contract';
 
 export { GUARD_EXIT_CODES } from './contracts/guard-contract';
@@ -99,6 +103,26 @@ export type { FormatVerdictOptions } from './engine/verdict-formatter';
 export { generateImpactReport, generateImpactReportFromFile, renderImpactReport } from './engine/impact-report';
 
 export type { ImpactReport, PreventionCategory } from './engine/impact-report';
+
+// ─── Decision Flow Engine ────────────────────────────────────────────────────
+
+export {
+  generateDecisionFlow,
+  renderDecisionFlow,
+  createAgentState,
+  applyConsequence,
+  applyReward,
+  tickAgentStates,
+} from './engine/decision-flow-engine';
+
+export type {
+  DecisionFlow,
+  DecisionFlowMetrics,
+  IntentCluster,
+  RuleObstacle,
+  OutcomeCluster,
+  FlowPath,
+} from './engine/decision-flow-engine';
 
 // ─── World Loader ──────────────────────────────────────────────────────────
 

@@ -36,6 +36,8 @@ Commands:
   worlds         List available worlds (alias for world list)
   trace          Runtime action audit log
   impact         Counterfactual governance impact report
+  decision-flow  Intent → Rule → Outcome visualization (behavioral governance)
+  equity-penalties  Fortune 500 equity PENALIZE/REWARD simulation
   world          World management (status, diff, snapshot, rollback)
   derive         AI-assisted synthesis of .nv-world.md from markdown
   bootstrap      Compile .nv-world.md → world JSON files
@@ -63,6 +65,8 @@ Usage:
   neuroverse world rollback <path>
   neuroverse derive --input <path> [--output <path>] [--dry-run]
   neuroverse bootstrap --input <.md> --output <dir> [--validate]
+  neuroverse decision-flow [--log <path>] [--json]
+  neuroverse equity-penalties --world <dir> [--agents N] [--rounds N] [--json]
   neuroverse configure-ai --provider <name> --model <name> --api-key <key>
 
 Examples:
@@ -181,6 +185,14 @@ async function main(): Promise<void> {
     case 'derive': {
       const { main: deriveMain } = await import('./derive');
       return deriveMain(subArgs);
+    }
+    case 'decision-flow': {
+      const { main: decisionFlowMain } = await import('./decision-flow');
+      return decisionFlowMain(subArgs);
+    }
+    case 'equity-penalties': {
+      const { main: equityPenaltiesMain } = await import('./equity-penalties');
+      return equityPenaltiesMain(subArgs);
     }
     case 'configure-ai': {
       const { main: configureAiMain } = await import('./configure-ai');

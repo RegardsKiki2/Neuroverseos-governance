@@ -17,10 +17,11 @@ import { evaluateGuard } from '../engine/guard-engine';
 import { evaluatePlan, advancePlan, getPlanProgress } from '../engine/plan-engine';
 import { loadWorld } from '../loader/world-loader';
 import { formatVerdict } from '../engine/verdict-formatter';
-import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/guard-contract';
+import type { GuardEvent, GuardVerdict, GuardEngineOptions, AgentBehaviorState } from '../contracts/guard-contract';
 import type { PlanDefinition, PlanProgress } from '../contracts/plan-contract';
 import type { WorldDefinition } from '../types';
 import type { ModelAdapter, ToolCall, ModelResponse } from './model-adapter';
+import { createAgentState, applyConsequence, applyReward, tickAgentStates } from '../engine/decision-flow-engine';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,6 +81,18 @@ export interface SessionState {
 
   /** Total actions paused. */
   actionsPaused: number;
+
+  /** Total actions modified. */
+  actionsModified: number;
+
+  /** Total actions penalized. */
+  actionsPenalized: number;
+
+  /** Total actions rewarded. */
+  actionsRewarded: number;
+
+  /** Agent behavior states — tracks cooldowns, influence, rewards per agent. */
+  agentStates: Map<string, AgentBehaviorState>;
 }
 
 // ─── Default Tool Executor ──────────────────────────────────────────────────
@@ -119,6 +132,10 @@ export class SessionManager {
       actionsAllowed: 0,
       actionsBlocked: 0,
       actionsPaused: 0,
+      actionsModified: 0,
+      actionsPenalized: 0,
+      actionsRewarded: 0,
+      agentStates: new Map(),
     };
   }
 
@@ -144,15 +161,48 @@ export class SessionManager {
    */
   evaluate(event: GuardEvent): GuardVerdict {
     this.engineOptions.plan = this.state.plan;
+    this.engineOptions.agentStates = this.state.agentStates;
     const verdict = evaluateGuard(event, this.state.world, this.engineOptions);
 
     this.state.actionsEvaluated++;
     if (verdict.status === 'ALLOW') this.state.actionsAllowed++;
     if (verdict.status === 'BLOCK') this.state.actionsBlocked++;
     if (verdict.status === 'PAUSE') this.state.actionsPaused++;
+    if (verdict.status === 'MODIFY') this.state.actionsModified++;
+    if (verdict.status === 'PENALIZE') this.state.actionsPenalized++;
+    if (verdict.status === 'REWARD') this.state.actionsRewarded++;
+
+    // Apply behavioral consequences/rewards to agent state
+    if (event.roleId) {
+      let agentState = this.state.agentStates.get(event.roleId) ?? createAgentState(event.roleId);
+
+      if (verdict.status === 'PENALIZE' && verdict.consequence) {
+        agentState = applyConsequence(agentState, verdict.consequence, verdict.ruleId ?? 'unknown');
+      }
+      if (verdict.status === 'REWARD' && verdict.reward) {
+        agentState = applyReward(agentState, verdict.reward, verdict.ruleId ?? 'unknown');
+      }
+
+      this.state.agentStates.set(event.roleId, agentState);
+    }
 
     this.config.onVerdict?.(verdict, event);
     return verdict;
+  }
+
+  /**
+   * Advance all agent states by one round.
+   * Call this at the end of each simulation round to decrement cooldowns.
+   */
+  tickRound(): void {
+    this.state.agentStates = tickAgentStates(this.state.agentStates);
+  }
+
+  /**
+   * Get the behavior state for a specific agent.
+   */
+  getAgentState(agentId: string): AgentBehaviorState | undefined {
+    return this.state.agentStates.get(agentId);
   }
 
   /**
@@ -180,7 +230,7 @@ export class SessionManager {
 
     const verdict = this.evaluate(event);
 
-    if (verdict.status === 'BLOCK') {
+    if (verdict.status === 'BLOCK' || verdict.status === 'PENALIZE') {
       return { allowed: false, verdict };
     }
 
@@ -188,7 +238,7 @@ export class SessionManager {
       return { allowed: false, verdict };
     }
 
-    // ALLOW — execute the tool
+    // ALLOW, REWARD, MODIFY, NEUTRAL — execute the tool (MODIFY may change args)
     const result = await this.executor(toolCall.function.name, args);
     this.config.onToolResult?.(toolCall.function.name, result);
 
@@ -418,7 +468,8 @@ export async function runInteractiveMode(
       const s = session.getState();
       process.stdout.write(`\n  World: ${s.world.world.name}\n`);
       process.stdout.write(`  Actions: ${s.actionsEvaluated} evaluated\n`);
-      process.stdout.write(`  Allowed: ${s.actionsAllowed} | Blocked: ${s.actionsBlocked} | Paused: ${s.actionsPaused}\n`);
+      process.stdout.write(`  Allowed: ${s.actionsAllowed} | Blocked: ${s.actionsBlocked} | Modified: ${s.actionsModified} | Paused: ${s.actionsPaused}\n`);
+      process.stdout.write(`  Penalized: ${s.actionsPenalized} | Rewarded: ${s.actionsRewarded}\n`);
       if (s.progress && s.plan) {
         process.stdout.write(`  Plan: ${s.plan.plan_id} — ${s.progress.completed}/${s.progress.total} (${s.progress.percentage}%)\n`);
         for (const step of s.plan.steps) {

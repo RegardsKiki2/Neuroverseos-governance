@@ -311,7 +311,7 @@ export interface Guard {
   label: string;
   description: string;
   category: 'structural' | 'operational' | 'advisory';
-  enforcement: 'block' | 'pause' | 'warn';
+  enforcement: 'block' | 'pause' | 'warn' | 'modify' | 'penalize' | 'reward' | 'neutral';
   immutable: boolean;
   invariant_ref?: string;
   intent_patterns: string[];
@@ -323,8 +323,24 @@ export interface Guard {
   player_modes?: {
     thinking?: 'annotate' | 'block' | 'ignore';
     experience?: 'simulate' | 'score' | 'ignore';
-    action?: 'block' | 'pause' | 'warn';
+    action?: 'block' | 'pause' | 'warn' | 'modify' | 'penalize' | 'reward' | 'neutral';
   };
+  /** Consequence to apply when enforcement is 'penalize' */
+  consequence?: {
+    type: 'freeze' | 'reduce_influence' | 'increase_risk' | 'cooldown' | 'custom';
+    rounds?: number;
+    magnitude?: number;
+    description: string;
+  };
+  /** Reward to apply when enforcement is 'reward' */
+  reward?: {
+    type: 'boost_influence' | 'priority' | 'faster_execution' | 'weight_increase' | 'custom';
+    rounds?: number;
+    magnitude?: number;
+    description: string;
+  };
+  /** For 'modify' enforcement: what the action should be changed to */
+  modify_to?: string;
 }
 
 export interface IntentPattern {

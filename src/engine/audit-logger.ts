@@ -43,10 +43,20 @@ export interface AuditEvent {
   direction?: 'input' | 'output';
 
   /** The governance decision */
-  decision: 'ALLOW' | 'BLOCK' | 'PAUSE';
+  decision: 'ALLOW' | 'BLOCK' | 'PAUSE' | 'MODIFY' | 'PENALIZE' | 'REWARD' | 'NEUTRAL';
   reason?: string;
   ruleId?: string;
   warning?: string;
+
+  /** Consequence applied (for PENALIZE decisions) */
+  consequence?: { type: string; rounds?: number; magnitude?: number; description: string };
+
+  /** Reward applied (for REWARD decisions) */
+  reward?: { type: string; rounds?: number; magnitude?: number; description: string };
+
+  /** Intent tracking — original vs final action */
+  originalIntent?: string;
+  finalAction?: string;
 
   /** Which rules/guards matched */
   guardsMatched: string[];
@@ -74,12 +84,16 @@ export interface AuditSummary {
   allowed: number;
   blocked: number;
   paused: number;
+  modified: number;
+  penalized: number;
+  rewarded: number;
+  neutral: number;
 
   /** Unique actors seen */
   actors: string[];
 
   /** Actions grouped by intent */
-  topIntents: { intent: string; count: number; blocked: number; paused: number }[];
+  topIntents: { intent: string; count: number; blocked: number; paused: number; penalized: number; rewarded: number }[];
 
   /** Most frequently triggered rules */
   topRules: { ruleId: string; count: number }[];
@@ -87,6 +101,14 @@ export interface AuditSummary {
   /** Time range */
   firstEvent: string;
   lastEvent: string;
+
+  /** Behavioral economy summary */
+  behavioralEconomy: {
+    totalPenalties: number;
+    totalRewards: number;
+    netPressure: number;
+    redirectionRate: number;
+  };
 }
 
 // ─── Audit Logger Interface ─────────────────────────────────────────────────
@@ -160,11 +182,17 @@ export class FileAuditLogger implements AuditLogger {
  */
 export class ConsoleAuditLogger implements AuditLogger {
   log(event: AuditEvent): void {
-    const icon = event.decision === 'ALLOW' ? '✓' : event.decision === 'BLOCK' ? '✗' : '⏸';
+    const iconMap: Record<string, string> = {
+      'ALLOW': '●', 'BLOCK': '○', 'PAUSE': '◑',
+      'MODIFY': '◐', 'PENALIZE': '◌', 'REWARD': '◉', 'NEUTRAL': '◯',
+    };
+    const icon = iconMap[event.decision] ?? '·';
     const ts = event.timestamp.split('T')[1]?.replace('Z', '') ?? event.timestamp;
-    process.stderr.write(
-      `[${ts}] ${icon} ${event.decision.padEnd(5)} ${event.actor ?? '—'} → ${event.intent}${event.reason ? ` (${event.reason})` : ''}\n`,
-    );
+    let line = `[${ts}] ${icon} ${event.decision.padEnd(10)} ${event.actor ?? '—'} → ${event.intent}`;
+    if (event.reason) line += ` (${event.reason})`;
+    if (event.consequence) line += ` [consequence: ${event.consequence.description}]`;
+    if (event.reward) line += ` [reward: ${event.reward.description}]`;
+    process.stderr.write(line + '\n');
   }
 }
 
@@ -203,7 +231,7 @@ export class CompositeAuditLogger implements AuditLogger {
  * Convert a GuardEvent + GuardVerdict into an AuditEvent.
  */
 export function verdictToAuditEvent(event: GuardEvent, verdict: GuardVerdict): AuditEvent {
-  return {
+  const auditEvent: AuditEvent = {
     timestamp: new Date().toISOString(),
     worldId: verdict.evidence.worldId,
     worldName: verdict.evidence.worldName,
@@ -225,6 +253,20 @@ export function verdictToAuditEvent(event: GuardEvent, verdict: GuardVerdict): A
     durationMs: verdict.trace?.durationMs,
     args: event.args,
   };
+
+  // Attach behavioral enforcement data
+  if (verdict.consequence) {
+    auditEvent.consequence = verdict.consequence;
+  }
+  if (verdict.reward) {
+    auditEvent.reward = verdict.reward;
+  }
+  if (verdict.intentRecord) {
+    auditEvent.originalIntent = verdict.intentRecord.originalIntent;
+    auditEvent.finalAction = verdict.intentRecord.finalAction;
+  }
+
+  return auditEvent;
 }
 
 // ─── Governed Engine ────────────────────────────────────────────────────────
@@ -330,6 +372,10 @@ export function summarizeAuditEvents(events: AuditEvent[]): AuditSummary {
   const allowed = events.filter(e => e.decision === 'ALLOW').length;
   const blocked = events.filter(e => e.decision === 'BLOCK').length;
   const paused = events.filter(e => e.decision === 'PAUSE').length;
+  const modified = events.filter(e => e.decision === 'MODIFY').length;
+  const penalized = events.filter(e => e.decision === 'PENALIZE').length;
+  const rewarded = events.filter(e => e.decision === 'REWARD').length;
+  const neutral = events.filter(e => e.decision === 'NEUTRAL').length;
 
   // Unique actors
   const actorSet = new Set<string>();
@@ -338,12 +384,14 @@ export function summarizeAuditEvents(events: AuditEvent[]): AuditSummary {
   }
 
   // Intent counts
-  const intentMap = new Map<string, { count: number; blocked: number; paused: number }>();
+  const intentMap = new Map<string, { count: number; blocked: number; paused: number; penalized: number; rewarded: number }>();
   for (const e of events) {
-    const entry = intentMap.get(e.intent) ?? { count: 0, blocked: 0, paused: 0 };
+    const entry = intentMap.get(e.intent) ?? { count: 0, blocked: 0, paused: 0, penalized: 0, rewarded: 0 };
     entry.count++;
     if (e.decision === 'BLOCK') entry.blocked++;
     if (e.decision === 'PAUSE') entry.paused++;
+    if (e.decision === 'PENALIZE') entry.penalized++;
+    if (e.decision === 'REWARD') entry.rewarded++;
     intentMap.set(e.intent, entry);
   }
   const topIntents = [...intentMap.entries()]
@@ -364,15 +412,28 @@ export function summarizeAuditEvents(events: AuditEvent[]): AuditSummary {
     .map(([ruleId, count]) => ({ ruleId, count }))
     .sort((a, b) => b.count - a.count);
 
+  const redirected = blocked + paused + modified + penalized;
+  const total = events.length;
+
   return {
-    totalActions: events.length,
+    totalActions: total,
     allowed,
     blocked,
     paused,
+    modified,
+    penalized,
+    rewarded,
+    neutral,
     actors: [...actorSet],
     topIntents,
     topRules,
     firstEvent: events[0]?.timestamp ?? '',
     lastEvent: events[events.length - 1]?.timestamp ?? '',
+    behavioralEconomy: {
+      totalPenalties: penalized,
+      totalRewards: rewarded,
+      netPressure: rewarded - penalized,
+      redirectionRate: total > 0 ? redirected / total : 0,
+    },
   };
 }

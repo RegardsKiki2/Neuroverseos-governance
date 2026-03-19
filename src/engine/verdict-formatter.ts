@@ -37,6 +37,10 @@ const ANSI = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  gray: '\x1b[90m',
   bold: '\x1b[1m',
   dim: '\x1b[2m',
   reset: '\x1b[0m',
@@ -116,6 +120,37 @@ function formatFull(
     lines.push(`  Reason: ${verdict.reason}`);
   }
 
+  // Consequence (PENALIZE)
+  if (verdict.consequence) {
+    const label = opts.color ? c('Consequence:', ANSI.red) : 'Consequence:';
+    lines.push(`  ${label} ${verdict.consequence.description}`);
+    if (verdict.consequence.rounds) {
+      lines.push(`  Freeze: ${verdict.consequence.rounds} round(s)`);
+    }
+    if (verdict.consequence.magnitude) {
+      lines.push(`  Magnitude: ${(verdict.consequence.magnitude * 100).toFixed(0)}%`);
+    }
+  }
+
+  // Reward (REWARD)
+  if (verdict.reward) {
+    const label = opts.color ? c('Reward:', ANSI.blue) : 'Reward:';
+    lines.push(`  ${label} ${verdict.reward.description}`);
+    if (verdict.reward.rounds) {
+      lines.push(`  Duration: ${verdict.reward.rounds} round(s)`);
+    }
+    if (verdict.reward.magnitude) {
+      lines.push(`  Boost: ${(verdict.reward.magnitude * 100).toFixed(0)}%`);
+    }
+  }
+
+  // Intent record
+  if (verdict.intentRecord) {
+    const ir = verdict.intentRecord;
+    const label = opts.color ? c('Intent Flow:', ANSI.cyan) : 'Intent Flow:';
+    lines.push(`  ${label} ${ir.originalIntent} → ${ir.finalAction}`);
+  }
+
   // Warning
   if (opts.showWarning && verdict.warning) {
     const label = opts.color ? c('Warning:', ANSI.yellow) : 'Warning:';
@@ -148,6 +183,14 @@ function formatStatus(status: string, color: boolean): string {
       return color ? c('BLOCKED', ANSI.red, ANSI.bold) : 'BLOCKED';
     case 'PAUSE':
       return color ? c('PAUSED', ANSI.yellow, ANSI.bold) : 'PAUSED';
+    case 'MODIFY':
+      return color ? c('MODIFIED', ANSI.yellow, ANSI.bold) : 'MODIFIED';
+    case 'PENALIZE':
+      return color ? c('PENALIZED', ANSI.red, ANSI.bold) : 'PENALIZED';
+    case 'REWARD':
+      return color ? c('REWARDED', ANSI.blue, ANSI.bold) : 'REWARDED';
+    case 'NEUTRAL':
+      return color ? c('NEUTRAL', ANSI.gray, ANSI.bold) : 'NEUTRAL';
     default:
       return status;
   }

@@ -76,7 +76,106 @@ export interface GuardEvent {
 
 // ─── Guard Verdict (Output) ──────────────────────────────────────────────────
 
-export type GuardStatus = 'ALLOW' | 'BLOCK' | 'PAUSE';
+export type GuardStatus = 'ALLOW' | 'BLOCK' | 'PAUSE' | 'MODIFY' | 'PENALIZE' | 'REWARD' | 'NEUTRAL';
+
+// ─── Consequence & Reward Definitions ────────────────────────────────────────
+
+/**
+ * Consequence applied when an agent is PENALIZED.
+ * The governance engine blocks the action AND imposes a behavioral cost.
+ */
+export interface Consequence {
+  /** Type of penalty */
+  type: 'freeze' | 'reduce_influence' | 'increase_risk' | 'cooldown' | 'custom';
+
+  /** Duration in rounds (for freeze/cooldown) */
+  rounds?: number;
+
+  /** Magnitude of effect (e.g., influence reduction percentage 0-1) */
+  magnitude?: number;
+
+  /** Human-readable description of what happens */
+  description: string;
+}
+
+/**
+ * Reward applied when an agent's action is REWARDED.
+ * The action proceeds AND the agent receives a behavioral boost.
+ */
+export interface Reward {
+  /** Type of reward */
+  type: 'boost_influence' | 'priority' | 'faster_execution' | 'weight_increase' | 'custom';
+
+  /** Duration in rounds (for temporary boosts) */
+  rounds?: number;
+
+  /** Magnitude of effect (e.g., influence boost percentage 0-1) */
+  magnitude?: number;
+
+  /** Human-readable description of what happens */
+  description: string;
+}
+
+/**
+ * Tracks the behavioral state of an agent across governance evaluations.
+ * This is what makes governance a behavior-shaping system, not just a filter.
+ */
+export interface AgentBehaviorState {
+  /** Agent/role identifier */
+  agentId: string;
+
+  /** Rounds remaining in cooldown (0 = active) */
+  cooldownRemaining: number;
+
+  /** Current influence multiplier (1.0 = normal) */
+  influence: number;
+
+  /** Accumulated reward multiplier (1.0 = normal) */
+  rewardMultiplier: number;
+
+  /** Total penalties received */
+  totalPenalties: number;
+
+  /** Total rewards received */
+  totalRewards: number;
+
+  /** History of consequences applied */
+  consequenceHistory: Array<{ ruleId: string; consequence: Consequence; appliedAt: number }>;
+
+  /** History of rewards applied */
+  rewardHistory: Array<{ ruleId: string; reward: Reward; appliedAt: number }>;
+}
+
+// ─── Intent Tracking ─────────────────────────────────────────────────────────
+
+/**
+ * Tracks what an agent WANTED to do vs what governance MADE it do.
+ * This is the core of the Decision Flow visualization.
+ *
+ * The gap between intent and outcome = governance value.
+ */
+export interface IntentRecord {
+  /** Original action the agent attempted */
+  originalIntent: string;
+
+  /** What actually happened after governance */
+  finalAction: string;
+
+  /** The rule that caused the interception */
+  ruleApplied?: string;
+
+  /** How the intent was transformed */
+  enforcement: GuardStatus;
+
+  /** If MODIFY, what the action was changed to */
+  modifiedTo?: string;
+
+  /** If PENALIZE, the consequence applied */
+  consequence?: Consequence;
+
+  /** If REWARD, the reward applied */
+  reward?: Reward;
+}
 
 /**
  * Evidence attached to every verdict for audit purposes.
@@ -126,6 +225,15 @@ export interface GuardVerdict {
 
   /** Advisory warning (for ALLOW with warn-mode guards) */
   warning?: string;
+
+  /** Consequence applied (for PENALIZE verdicts) */
+  consequence?: Consequence;
+
+  /** Reward applied (for REWARD verdicts) */
+  reward?: Reward;
+
+  /** Intent tracking — what the agent wanted vs what happened */
+  intentRecord?: IntentRecord;
 
   /** Audit evidence — always present */
   evidence: VerdictEvidence;
@@ -215,7 +323,7 @@ export interface GuardCheck {
   category: 'structural' | 'operational' | 'advisory';
   enabled: boolean;
   matched: boolean;
-  enforcement: 'block' | 'pause' | 'warn';
+  enforcement: 'block' | 'pause' | 'warn' | 'modify' | 'penalize' | 'reward' | 'neutral';
   /** Which intent patterns matched (if any) */
   matchedPatterns: string[];
   /** Whether the guard was skipped due to role gating */
@@ -299,6 +407,13 @@ export interface GuardEngineOptions {
    * Plans can only restrict, never expand.
    */
   plan?: import('./plan-contract').PlanDefinition;
+
+  /**
+   * Agent behavior states — tracks cooldowns, influence, rewards per agent.
+   * The engine reads this to check if an agent is penalized (frozen).
+   * The caller owns mutation (applying consequences/rewards after verdict).
+   */
+  agentStates?: Map<string, AgentBehaviorState>;
 }
 
 // ─── Exit Codes ──────────────────────────────────────────────────────────────
@@ -308,6 +423,10 @@ export const GUARD_EXIT_CODES = {
   BLOCK: 1,
   PAUSE: 2,
   ERROR: 3,
+  MODIFY: 4,
+  PENALIZE: 5,
+  REWARD: 6,
+  NEUTRAL: 7,
 } as const;
 
 export type GuardExitCode = (typeof GUARD_EXIT_CODES)[keyof typeof GUARD_EXIT_CODES];
