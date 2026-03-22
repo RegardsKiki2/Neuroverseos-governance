@@ -80,22 +80,25 @@ evaluateGuard(world, event)  →  GuardVerdict
 
 One function. One execution path. No duplicate logic. No drift between environments.
 
-Every action passes through a 6-phase evaluation pipeline:
+Every action passes through a multi-phase evaluation pipeline:
 
 ```
-Safety → Plan → Roles → Guards → Kernel → Level → Verdict
+Invariants → Cooldown → Allowlist → Safety → Plan → Roles → Guards → Kernel → Level → Verdict
 ```
 
 | Phase | What it enforces | Think of it as |
 |-------|-----------------|----------------|
-| **Safety** | Prompt injection, scope escape, data exfiltration | Country laws — always on |
+| **Invariants** | World health metrics — always measured | Vital signs |
+| **Cooldown** | Penalized agents frozen for N rounds | Time-out |
+| **Allowlist** | Fast-path for pre-approved actions | TSA PreCheck |
+| **Safety** | Prompt injection (63+ patterns), scope escape, data exfiltration | Country laws — always on |
 | **Plan** | Is this action within the current mission? | Mission briefing — temporary |
 | **Roles** | Does this actor have permission? | Security clearance |
 | **Guards** | Do domain-specific rules allow it? | Company policy |
 | **Kernel** | Does it violate LLM boundary rules? | Constitution |
 | **Level** | Does enforcement strictness allow it? | Alert level |
 
-First BLOCK wins. If nothing blocks, ALLOW.
+First BLOCK wins. If nothing blocks, ALLOW. Every phase is recorded in the trace — not just the deciding one.
 
 Zero network calls. Pure function. Deterministic.
 
@@ -262,6 +265,16 @@ const handler = await createNeuroVerseCallbackHandler('./world/', {
 const agent = new AgentExecutor({ ..., callbacks: [handler] });
 ```
 
+### OpenClaw
+
+```typescript
+import { createNeuroVersePlugin } from '@neuroverseos/governance/adapters/openclaw';
+
+const plugin = await createNeuroVersePlugin('./world/', { plan });
+agent.use(plugin.hooks());
+// beforeAction → evaluates guard, afterAction → evaluates output
+```
+
 ### Express / Fastify
 
 ```typescript
@@ -339,17 +352,20 @@ Before you deploy a world, validate it.
 neuroverse validate --world ./world
 ```
 
-9 static checks:
+12 static checks:
 
-1. **Structural completeness** — required files present
+1. **Structural completeness** — required files present and non-empty
 2. **Referential integrity** — rules reference declared variables
-3. **Guard coverage** — invariants have guard enforcement
-4. **Gate consistency** — gate thresholds don't overlap
-5. **Kernel alignment** — kernel rules match world invariants
-6. **Guard shadowing** — detects guards that can never fire
-7. **Reachability** — detects dead rules and gates
-8. **State coverage** — detects gaps in enum variable handling
-9. **Governance health** — composite risk score
+3. **Guard coverage** — invariants have backing structural guards
+4. **Semantic coverage** — can guards actually intercept the invariant's action class?
+5. **Contradiction detection** — do rules conflict? Circular exclusive_with chains?
+6. **Guard shadowing** — detects guards that suppress each other
+7. **Fail-closed surfaces** — identifies ungoverned action surfaces
+8. **Reachability** — detects rules/gates that can never trigger given state schema
+9. **State coverage** — guard conditions cover all enumerated state values
+10. **Orphan detection** — unused variables, unreferenced rules, dead patterns
+11. **Schema validation** — values within declared ranges, type mismatches
+12. **Governance health** — composite risk score with coverage metrics
 
 ---
 
@@ -379,7 +395,7 @@ neuroverse run --interactive --world ./world --provider openai --plan plan.json
 | `neuroverse init` | Scaffold a world template |
 | `neuroverse bootstrap` | Compile markdown → world JSON |
 | `neuroverse build` | Derive + compile in one step |
-| `neuroverse validate` | 9 static analysis checks |
+| `neuroverse validate` | 12 static analysis checks |
 | `neuroverse guard` | Evaluate an action (stdin → verdict) |
 | `neuroverse test` | 14 guard tests + fuzz testing |
 | `neuroverse redteam` | 28 adversarial attacks |
@@ -395,6 +411,121 @@ neuroverse run --interactive --world ./world --provider openai --plan plan.json
 | `neuroverse derive` | AI-assisted world synthesis |
 | `neuroverse doctor` | Environment health check |
 | `neuroverse configure-ai` | Set up AI provider |
+
+---
+
+## Behavioral Governance
+
+Every governance system can tell you what it blocked. NeuroVerse tells you what happened *because* of the block.
+
+```
+GuardVerdict[] → classifyAdaptation() → Adaptation[]
+Adaptation[]   → detectBehavioralPatterns() → BehavioralPattern[]
+Pattern[]      → generateAdaptationNarrative() → string
+```
+
+### What agents did instead
+
+When governance blocks or modifies an action, the agent does something else. NeuroVerse classifies that shift:
+
+| Shift | Example |
+|-------|---------|
+| Amplification suppressed | Agent wanted to broadcast, governance blocked it, agent went silent |
+| Redirected to reporting | Agent wanted to trade, governance redirected, agent started analyzing |
+| Trading halt | Multiple trading agents stopped simultaneously |
+| Constructive redirect | Agents shifted from amplifying to fact-checking |
+
+### What patterns emerged collectively
+
+When multiple agents adapt at once, NeuroVerse detects network-level patterns:
+
+- **Coordinated silence** — 3+ agents suppressed simultaneously
+- **Misinfo suppression** — amplification blocks across multiple agents
+- **Penalty wave** — 3+ agents penalized in the same window
+- **Reward cascade** — 3+ agents rewarded, capabilities expanding
+- **High governance impact** — 30%+ of agents affected by enforcement
+
+### The gap is the value
+
+```bash
+neuroverse impact --world ./world --audit-log ./trace.json
+```
+
+The `impact` command answers: "What would have happened without governance?"
+
+It reads your audit log, replays every action as if the world didn't exist, and shows the counterfactual:
+
+```
+Governance Impact Report
+────────────────────────
+  Actions evaluated:        1,247
+  Actions redirected:         183 (14.7%)
+  Prompt injections caught:    12
+  Scope escapes prevented:      7
+  Budget overruns blocked:      3
+
+  Behavioral shifts:
+    Amplification → Analysis:   23 agents
+    Trading → Observation:       8 agents
+    Broadcasting → Silence:      5 agents
+
+  Net behavioral pressure: -0.34 (governance is cooling the system)
+
+  Without governance, 183 actions would have executed unfiltered.
+```
+
+The gap between intent and outcome = governance value.
+
+---
+
+## Decision Flow Visualization
+
+NeuroVerse generates a flow structure showing how governance transforms agent intent into actual outcomes:
+
+```
+LEFT (Intent Pool)    →    CENTER (Rules)    →    RIGHT (Outcome Pool)
+What agents wanted          What intercepted        What actually happened
+```
+
+```typescript
+import { generateDecisionFlow } from '@neuroverseos/governance';
+
+const flow = generateDecisionFlow(auditEvents);
+// flow.intentClusters  → what agents wanted (grouped by intent)
+// flow.ruleObstacles   → what intercepted (grouped by rule)
+// flow.outcomeClusters → what actually happened (grouped by verdict)
+// flow.metrics.redirectionRate → "14.7% of intent was redirected"
+```
+
+---
+
+## Example Worlds
+
+Two reference worlds ship with the repository in `docs/worlds/`:
+
+### Configurator Governance
+
+*"The structural integrity of a governed AI environment depends entirely on the discipline of the building process."*
+
+A meta-governance world — it governs the process of building governance worlds. Catches rushed builds, missing invariants, vague rules, absent enforcement. The world that governs world-building.
+
+```bash
+neuroverse validate --world docs/worlds/configurator-governance
+neuroverse explain --world docs/worlds/configurator-governance
+```
+
+### Post-Web Business Viability
+
+*"Governance assumptions about delegation and agent behavior determine whether existing business models survive the transition from human navigation to agent-mediated commerce."*
+
+A simulation world that models what happens to businesses when AI agents replace human web browsing. Tracks capture layer accessibility, discovery bypass, ad revenue degradation, attention decoupling. Uses NeuroVerse as a modeling engine, not just a guard.
+
+```bash
+neuroverse simulate --world docs/worlds/post-web-world
+neuroverse explain --world docs/worlds/post-web-world
+```
+
+These aren't toy examples. They're real governance worlds you can study, modify, and build on.
 
 ---
 
