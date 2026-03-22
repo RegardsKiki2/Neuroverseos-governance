@@ -14,8 +14,8 @@ npm install @neuroverseos/governance
 
 ### Enforce a world (permanent rules)
 
-```javascript
-const { evaluateGuard, loadWorld } = require('@neuroverseos/governance');
+```typescript
+import { evaluateGuard, loadWorld } from '@neuroverseos/governance';
 
 const world = await loadWorld('./world/');
 const verdict = evaluateGuard({ intent: 'delete user', tool: 'db' }, world);
@@ -24,8 +24,8 @@ const verdict = evaluateGuard({ intent: 'delete user', tool: 'db' }, world);
 
 ### Enforce a plan (temporary task scope)
 
-```javascript
-const { evaluatePlan, parsePlanMarkdown } = require('@neuroverseos/governance');
+```typescript
+import { evaluatePlan, parsePlanMarkdown } from '@neuroverseos/governance';
 
 const plan = parsePlanMarkdown(planMarkdownString);
 const verdict = evaluatePlan({ intent: 'send email', tool: 'smtp' }, plan.plan);
@@ -34,7 +34,7 @@ const verdict = evaluatePlan({ intent: 'send email', tool: 'smtp' }, plan.plan);
 
 ### Enforce both (plan on top of world)
 
-```javascript
+```typescript
 const verdict = evaluateGuard(event, world, { plan });
 // Plan rules AND world rules both apply
 // Plan can only restrict, never expand
@@ -42,10 +42,53 @@ const verdict = evaluateGuard(event, world, { plan });
 
 ### Guard with trace (see what fired)
 
-```javascript
+```typescript
 const verdict = evaluateGuard(event, world, { trace: true, level: 'strict' });
 // verdict.trace contains:
-//   safetyChecks, guardChecks, kernelRuleChecks, levelChecks, invariantChecks
+//   safetyChecks, planCheck, roleChecks, guardChecks, kernelRuleChecks, levelChecks, invariantChecks
+```
+
+## Guard Event Input
+
+The `GuardEvent` is what you send to the engine:
+
+```typescript
+{
+  intent: string;           // Required — what the agent wants to do
+  tool?: string;            // Tool being called (e.g., 'database', 'filesystem')
+  scope?: string;           // Resource path or domain (e.g., '/etc/passwd', 'production')
+  roleId?: string;          // Agent role for multi-agent governance
+  direction?: 'input' | 'output';  // Is this an incoming request or outgoing response?
+  actionCategory?: 'read' | 'write' | 'delete' | 'network' | 'shell' | 'browser' | 'other';
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  irreversible?: boolean;   // Flag destructive actions for stricter checking
+  payload?: string;         // Raw content for injection detection
+  args?: Record<string, unknown>;  // Tool arguments (supports dot-notation access in rules)
+}
+```
+
+## Guard Verdict Output
+
+```typescript
+{
+  status: 'ALLOW' | 'BLOCK' | 'PAUSE' | 'MODIFY' | 'PENALIZE' | 'REWARD' | 'NEUTRAL';
+  reason?: string;          // Why the action was blocked/paused
+  ruleId?: string;          // Which rule decided
+  warning?: string;         // Advisory for ALLOW verdicts
+  consequence?: object;     // Details when PENALIZE (cooldown, influence reduction)
+  reward?: object;          // Details when REWARD (priority boost, influence increase)
+  evidence: {               // Always present — audit trail
+    worldId: string;
+    worldName: string;
+    worldVersion: string;
+    timestamp: number;
+    invariantCoverage: { satisfied: number; total: number };
+    matchedGuards: string[];
+    matchedRules: string[];
+    enforcementLevel: string;
+  };
+  trace?: EvaluationTrace;  // Full pipeline trace when trace: true
+}
 ```
 
 ## Available Commands
@@ -63,6 +106,7 @@ neuroverse playground --world <dir>     Interactive web demo at localhost:4242
 neuroverse explain <world>              Human-readable world summary
 neuroverse simulate <world>             State evolution simulation
 neuroverse improve <world>              Actionable improvement suggestions
+neuroverse impact --log <path>          Counterfactual impact report
 neuroverse plan compile <plan.md>       Parse plan markdown into plan.json
 neuroverse plan check --plan plan.json  Check action against plan (stdin)
 neuroverse plan status --plan plan.json Show plan progress
@@ -71,7 +115,6 @@ neuroverse plan derive <plan.md>        Generate a full world from a plan
 neuroverse run --world <dir>            Governed runtime (pipe or interactive)
 neuroverse mcp --world <dir>            MCP governance server
 neuroverse trace --log <path>           Action audit log
-neuroverse impact --log <path>          Counterfactual impact report
 neuroverse world status|diff|snapshot|rollback  World management
 neuroverse worlds                       List available worlds
 neuroverse derive --input <path>        AI-assisted world synthesis
@@ -105,7 +148,7 @@ completion: verified
 - `completion: trust` (default) — caller says "done", step advances
 - `completion: verified` — steps with `[verify: ...]` require evidence to advance
 
-```javascript
+```typescript
 // Trust mode — just advance
 const result = advancePlan(plan, 'write_announcement_blog_post');
 // → { success: true, plan: <updated> }
@@ -125,8 +168,8 @@ const result = advancePlan(plan, 'publish_github_release');
 ## Governance Model
 
 ```
-Safety checks  →  Plan enforcement  →  Role rules  →  Guards  →  Kernel
-(country laws)    (mom's trip rules)   (driving laws)  (domain)   (boundaries)
+Safety checks  →  Plan enforcement  →  Role rules  →  Guards  →  Kernel  →  Level
+(country laws)    (mom's trip rules)   (driving laws)  (domain)   (boundaries) (strictness)
 ```
 
 Plans are temporary guard overlays. They define task scope.
@@ -137,12 +180,12 @@ Both layers must pass for an action to be allowed.
 
 Every action passes through 6 phases:
 
-1. **Safety** — prompt injection, scope escape, data exfil detection (always on)
+1. **Safety** — prompt injection, scope escape, data exfil detection (always on, 12 pattern categories)
 2. **Plan** — is the action within the current mission scope?
-3. **Roles** — does the actor have permission?
+3. **Roles** — does the actor have permission? (role-based access control)
 4. **Guards** — do domain-specific rules allow it?
-5. **Kernel** — does it violate LLM boundary rules?
-6. **Level** — does enforcement strictness allow it?
+5. **Kernel** — does it violate LLM boundary rules? (input/output forbidden patterns)
+6. **Level** — does enforcement strictness allow it? (basic, standard, strict)
 
 First BLOCK wins. If nothing blocks, ALLOW.
 
@@ -150,7 +193,7 @@ First BLOCK wins. If nothing blocks, ALLOW.
 
 ### OpenAI
 
-```javascript
+```typescript
 import { createGovernedToolExecutor } from '@neuroverseos/governance/adapters/openai';
 
 const executor = await createGovernedToolExecutor('./world/', { trace: true, plan });
@@ -160,7 +203,7 @@ const result = await executor.execute(toolCall, myToolRunner);
 
 ### LangChain
 
-```javascript
+```typescript
 import { createNeuroVerseCallbackHandler } from '@neuroverseos/governance/adapters/langchain';
 
 const handler = await createNeuroVerseCallbackHandler('./world/', {
@@ -172,7 +215,7 @@ const agent = new AgentExecutor({ ..., callbacks: [handler] });
 
 ### OpenClaw
 
-```javascript
+```typescript
 import { createNeuroVersePlugin } from '@neuroverseos/governance/adapters/openclaw';
 
 const plugin = await createNeuroVersePlugin('./world/', { plan });
@@ -181,7 +224,7 @@ agent.use(plugin.hooks());
 
 ### Express / Fastify
 
-```javascript
+```typescript
 import { createGovernanceMiddleware } from '@neuroverseos/governance/adapters/express';
 
 const middleware = await createGovernanceMiddleware('./world/', { level: 'strict' });
@@ -199,11 +242,16 @@ Exposes governed tools over Model Context Protocol. Works with Claude, Cursor, a
 
 ## Exit Codes
 
-- 0 = ALLOW / ON_PLAN / SUCCESS
-- 1 = BLOCK / OFF_PLAN / FAIL
-- 2 = PAUSE / CONSTRAINT_VIOLATED
-- 3 = ERROR
-- 4 = PLAN_COMPLETE
+| Code | Status | Meaning |
+|------|--------|---------|
+| 0 | ALLOW | Action permitted |
+| 1 | BLOCK | Action denied |
+| 2 | PAUSE | Held for human approval |
+| 3 | ERROR | Evaluation failed |
+| 4 | MODIFY | Action transformed |
+| 5 | PENALIZE | Consequence applied |
+| 6 | REWARD | Incentive applied |
+| 7 | NEUTRAL | Informational only |
 
 ## Containment Testing
 

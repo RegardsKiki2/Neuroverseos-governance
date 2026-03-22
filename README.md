@@ -13,26 +13,19 @@ Deterministic. No LLM in the evaluation loop. Same event + same rules = same ver
 
 ## Quick start
 
-Create a governed research environment:
-
-```bash
-npx @neuroverseos/governance init-world autoresearch \
-  --context "attention-free LLM architectures" \
-  --dataset TinyStories \
-  --goal "lowest val_bpb"
-```
-
-Outputs:
-
-```
-research.nv-world.md
-research.research.json
-```
-
-These files define the **Research World** your agents operate inside.
-
 ```bash
 npm install @neuroverseos/governance
+```
+
+```typescript
+import { evaluateGuard, loadWorld } from '@neuroverseos/governance';
+
+const world = await loadWorld('./world/');
+const verdict = evaluateGuard({ intent: 'delete user data' }, world);
+
+if (verdict.status === 'BLOCK') {
+  throw new Error(`Blocked: ${verdict.reason}`);
+}
 ```
 
 ### Quick test (no install required)
@@ -105,7 +98,7 @@ Containment Report
   Containment score: 100%
 ```
 
-28 adversarial attacks across 6 categories. Prompt injection, tool escalation, scope escape, data exfiltration, identity manipulation, constraint bypass. If anything escapes, you see exactly which rule failed.
+28 adversarial attacks across 6 categories. If anything escapes, you see exactly which rule failed.
 
 ### 5. Try it in the browser
 
@@ -117,7 +110,7 @@ Opens an interactive web UI at `localhost:4242`. Type any intent, see the full e
 
 ---
 
-## The Mental Model
+## How It Works
 
 ```
 Kubernetes → container isolation
@@ -127,13 +120,51 @@ Firewall   → network boundary
 NeuroVerse → agent decision boundary
 ```
 
-Every AI agent action passes through a 6-phase evaluation pipeline:
+Every AI agent action passes through a **6-phase evaluation pipeline**:
 
 ```
-Safety → Guards → Kernel → Level → Invariants → Verdict
+Safety → Plan → Roles → Guards → Kernel → Level → Verdict
 ```
 
-Returns ALLOW, BLOCK, or PAUSE. No network calls. No async. Pure function.
+| Phase | What it checks | Analogy |
+|-------|---------------|---------|
+| **Safety** | Prompt injection, scope escape, data exfiltration | Country laws — always enforced |
+| **Plan** | Is the action within the current mission scope? | Mom's trip rules — temporary |
+| **Roles** | Does the actor have permission for this action? | Driving laws — who can do what |
+| **Guards** | Do domain-specific rules allow it? | Company policy |
+| **Kernel** | Does it violate LLM boundary rules? | Constitution |
+| **Level** | Does enforcement strictness allow it? | Alert level |
+
+First BLOCK wins. If nothing blocks, the action is ALLOWED.
+
+No network calls. No async. Pure function.
+
+---
+
+## Verdict Statuses
+
+The guard engine returns one of 7 statuses:
+
+| Status | Meaning | Exit Code |
+|--------|---------|-----------|
+| `ALLOW` | Action permitted | 0 |
+| `BLOCK` | Action denied | 1 |
+| `PAUSE` | Action held for human approval | 2 |
+| `ERROR` | Evaluation failed (invalid input) | 3 |
+| `MODIFY` | Action allowed but transformed | 4 |
+| `PENALIZE` | Action triggers a consequence (cooldown, reduced influence) | 5 |
+| `REWARD` | Action earns a reward (boosted priority) | 6 |
+| `NEUTRAL` | Informational — no enforcement action | 7 |
+
+### Beyond Allow/Block
+
+NeuroVerse doesn't just gate actions — it can **shape agent behavior** over time:
+
+- **PENALIZE** applies consequences: freeze an agent for N rounds, reduce its influence multiplier, or restrict future actions
+- **REWARD** applies incentives: boost priority, increase influence, unlock capabilities
+- **MODIFY** transforms actions: the intent is allowed but changed (e.g., downgrading a destructive write to a read)
+
+This is tracked per-agent via `AgentBehaviorState`, enabling governance that adapts to patterns rather than just filtering individual actions.
 
 ---
 
@@ -332,25 +363,6 @@ neuroverse plan advance publish_github_release --plan plan.json \
 
 ---
 
-## Governance Model
-
-```
-Safety checks  →  Plan enforcement  →  Role rules  →  Guards  →  Kernel
-(hardcoded)       (mission scope)      (who can do)   (domain)   (boundaries)
-```
-
-Five layers, evaluated in order. First BLOCK wins.
-
-| Layer | Analogy | Purpose |
-|-------|---------|---------|
-| Safety | Country laws | Prompt injection, scope escape (always on) |
-| Plan | Mom's trip rules | Task-scoped constraints (temporary) |
-| Roles | Driving laws | Who can do what |
-| Guards | Domain policy | World-specific rules |
-| Kernel | Constitution | LLM boundary enforcement |
-
----
-
 ## Validation (9 Static Checks)
 
 ```bash
@@ -433,69 +445,54 @@ neuroverse run --interactive --world ./world --provider openai --plan plan.json
 
 ---
 
-## Example: Startup Marketing World
-
-A ready-to-use example is included in [`examples/startup-marketing/`](examples/startup-marketing/).
-
-```bash
-cd examples/startup-marketing
-
-neuroverse build world.nv-world.md
-neuroverse plan compile plan.md
-
-echo '{"intent":"write blog post"}' | neuroverse plan check --plan plan.json
-# → ON_PLAN
-
-echo '{"intent":"export customer emails"}' | neuroverse guard --world .neuroverse/worlds/startup_marketing_governance
-# → BLOCK: Customer data must never be shared externally
-```
-
----
-
 ## Architecture
 
 ```
 src/
   engine/
-    guard-engine.ts         # Core evaluation (6-phase chain)
-    plan-engine.ts          # Plan enforcement (keyword + similarity)
+    guard-engine.ts         # Core evaluation (6-phase pipeline)
+    plan-engine.ts          # Plan enforcement (keyword + similarity matching)
     validate-engine.ts      # 9 static analysis checks
     simulate-engine.ts      # State evolution
     condition-engine.ts     # Field resolution & operators
+    behavioral-engine.ts    # Behavioral pattern detection & adaptation
+    decision-flow-engine.ts # Decision flow visualization & consequences
+    derive-engine.ts        # AI-assisted world synthesis
   runtime/
     session.ts              # SessionManager + pipe/interactive modes
     model-adapter.ts        # OpenAI-compatible chat client
     mcp-server.ts           # MCP governance server (JSON-RPC 2.0)
+    govern.ts               # Simplified governance bridge
   cli/
-    neuroverse.ts           # CLI router (22 commands)
+    neuroverse.ts           # CLI router
     guard.ts                # Action evaluation
     test.ts                 # Guard simulation suite
     redteam.ts              # 28 adversarial attacks
     doctor.ts               # Environment sanity check
     playground.ts           # Interactive web demo
+    world.ts                # World management (status, diff, snapshot, rollback)
+    plan.ts                 # Plan enforcement commands
     ...
   adapters/
-    openai.ts, langchain.ts, openclaw.ts, express.ts
+    openai.ts               # OpenAI function calling adapter
+    langchain.ts            # LangChain callback handler
+    openclaw.ts             # OpenClaw plugin
+    express.ts              # Express/Fastify middleware
+    deep-agents.ts          # Deep agent orchestration
+    autoresearch.ts         # Autonomous research adapter
   contracts/
     guard-contract.ts       # Guard event/verdict types
     plan-contract.ts        # Plan definition/verdict types
+    validate-contract.ts    # Validation report types
+    derive-contract.ts      # AI derive types
   loader/
     world-loader.ts         # Load WorldDefinition from disk
+    world-resolver.ts       # Resolve world paths and active world
 
-test/                       # 303 tests
+test/                       # 303 tests (5 test suites)
 ```
 
 Zero runtime dependencies. Pure TypeScript. Node.js 18+.
-
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | ALLOW / ON_PLAN / SUCCESS |
-| 1 | BLOCK / OFF_PLAN / FAIL |
-| 2 | PAUSE / CONSTRAINT_VIOLATED |
-| 3 | ERROR |
-| 4 | PLAN_COMPLETE |
 
 ## Agent Discovery
 
@@ -510,8 +507,6 @@ This package includes machine-readable manifests for agent ecosystems:
 | **`openapi.yaml`** | OpenAPI 3.1 spec for the HTTP API | AutoGPT, CrewAI, API-aware agents |
 
 ### GitHub Topics
-
-Add these topics to the GitHub repo for search discovery:
 
 `ai-governance` `ai-safety` `mcp-server` `agent-guardrails` `deterministic` `plan-enforcement` `model-context-protocol` `ai-agents`
 
