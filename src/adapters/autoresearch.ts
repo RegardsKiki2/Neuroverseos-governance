@@ -12,8 +12,10 @@
  *   const state = governor.updateState(experimentResult);
  */
 
-import type { GuardEvent, GuardVerdict } from '../contracts/guard-contract';
+import type { GuardEvent, GuardVerdict, GuardEngineOptions } from '../contracts/guard-contract';
 import type { WorldDefinition } from '../types';
+import { evaluateGuard } from '../engine/guard-engine';
+import { loadWorldFromDirectory } from '../loader/world-loader';
 
 // ─── Autoresearch Types ─────────────────────────────────────────────────────
 
@@ -63,9 +65,13 @@ export interface AutoresearchGovernorConfig {
 export class AutoresearchGovernor {
   private config: AutoresearchGovernorConfig;
   private state: ResearchState;
+  private world?: WorldDefinition;
+  private engineOptions: GuardEngineOptions;
 
   constructor(config: AutoresearchGovernorConfig) {
     this.config = config;
+    this.world = config.world;
+    this.engineOptions = { trace: true };
     this.state = {
       experiments_run: 0,
       best_result: null,
@@ -97,14 +103,32 @@ export class AutoresearchGovernor {
 
   /**
    * Evaluate an experiment proposal against governance rules.
-   * Returns a simplified verdict without requiring the full guard engine.
+   * Routes through the guard engine when a world is loaded,
+   * then layers on research-specific checks (budget, constraints, drift).
    */
   evaluateProposal(proposal: ExperimentProposal): {
     allowed: boolean;
     reason: string;
     warnings: string[];
+    verdict?: GuardVerdict;
   } {
     const warnings: string[] = [];
+    const event = this.proposalToGuardEvent(proposal);
+
+    // Route through the governance engine when a world is loaded
+    if (this.world) {
+      const verdict = evaluateGuard(event, this.world, this.engineOptions);
+      if (verdict.status === 'BLOCK' || verdict.status === 'PAUSE') {
+        return {
+          allowed: false,
+          reason: verdict.reason ?? `Governance ${verdict.status}: ${verdict.ruleId ?? 'unknown rule'}`,
+          warnings,
+          verdict,
+        };
+      }
+    }
+
+    // Research-specific checks (layered on top of world governance)
 
     // Check compute budget
     const estimatedMinutes = proposal.estimated_minutes || 5;
@@ -123,7 +147,6 @@ export class AutoresearchGovernor {
         const archLower = proposal.architecture.toLowerCase();
         const descLower = proposal.description.toLowerCase();
 
-        // Simple pattern: "No X" constraints
         if (lower.startsWith('no ')) {
           const forbidden = lower.slice(3).trim();
           if (archLower.includes(forbidden) || descLower.includes(forbidden)) {
@@ -143,7 +166,7 @@ export class AutoresearchGovernor {
       warnings.push(`High failure rate: ${failureCount} failed experiments. Consider investigating root cause.`);
     }
 
-    // Warn on context drift (simple heuristic: repeated same architecture)
+    // Warn on context drift
     const recentArchitectures = this.state.experiment_log.slice(-5).map(e => e.architecture);
     const uniqueRecent = new Set(recentArchitectures).size;
     if (recentArchitectures.length >= 5 && uniqueRecent === 1) {
@@ -273,4 +296,17 @@ export class AutoresearchGovernor {
   exportState(): ResearchState {
     return { ...this.state };
   }
+}
+
+// ─── Factory ──────────────────────────────────────────────────────────────────
+
+/**
+ * Create an AutoresearchGovernor with a world loaded from disk.
+ */
+export async function createAutoresearchGovernor(
+  worldPath: string,
+  config: Omit<AutoresearchGovernorConfig, 'world' | 'worldPath'>,
+): Promise<AutoresearchGovernor> {
+  const world = await loadWorldFromDirectory(worldPath);
+  return new AutoresearchGovernor({ ...config, world, worldPath });
 }
