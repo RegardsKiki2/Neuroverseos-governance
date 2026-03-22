@@ -1,0 +1,38 @@
+{
+  "schema": "neuroverse-governance-manifest",
+  "version": "1.0.0",
+  "generation_available": false,
+  "compiler_available": false,
+  "templates": [
+    {
+      "id": "focus-room",
+      "path": "templates/thinking/focus-room",
+      "category": "thinking",
+      "domain": "custom"
+    },
+    {
+      "id": "safety-first-agent",
+      "path": "templates/agents/safety-first-agent",
+      "category": "agents",
+      "domain": "safety"
+    },
+    {
+      "id": "privacy-guardian",
+      "path": "templates/agents/privacy-guardian",
+      "category": "agents",
+      "domain": "privacy"
+    },
+    {
+      "id": "multi-agent-coordination",
+      "path": "templates/agents/multi-agent-coordination",
+      "category": "agents",
+      "domain": "coordination"
+    },
+    {
+      "id": "pitch-tank",
+      "path": "templates/simulations/pitch-tank",
+      "category": "simulations",
+      "domain": "pitch-tank"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "multi-agent-coordination",
+  "version": "1.0.0",
+  "category": "agents",
+  "domain": "coordination",
+  "enforcement_level": "strict",
+  "compilation": {
+    "compiler": "neuroverse-governance-compiler",
+    "compiler_version": "1.0.0",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:d4e5f6a7b8c9",
+    "compiler_available": false
+  },
+  "capabilities": {
+    "input_boundary_check": true,
+    "output_boundary_check": true,
+    "execution_boundary_check": true,
+    "role_admission_check": true,
+    "tool_access": true,
+    "agent_execution": true,
+    "external_research": false
+  },
+  "classification": {
+    "type": "agent_system",
+    "runner": "softshell",
+    "requires_api_key": true,
+    "requires_softshell": true,
+    "multi_agent": true
+  },
+  "execution_model": {
+    "approval_invariant": "all_paused_actions_require_ui_approval",
+    "fail_mode": "closed",
+    "pause_capabilities": ["agent-trigger", "shared-write", "network-post"],
+    "coordination_model": "explicit_permission_matrix",
+    "blast_radius": "contained_per_role"
+  },
+  "provenance": {
+    "publisher": "Type 5 Ops LLC",
+    "license": "AGPL-3.0",
+    "repository": "neuroverseos-governance-kernels"
+  }
+}

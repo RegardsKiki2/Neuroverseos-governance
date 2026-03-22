@@ -190,6 +190,18 @@ export type {
 
 export { BOOTSTRAP_EXIT_CODES } from './contracts/bootstrap-contract';
 
+// ─── Add Engine (Incremental Authoring) ──────────────────────────────────────
+
+export { addGuard, addRule, addInvariant, classifyIntent, parseGuardDescription } from './engine/add-engine';
+
+export type {
+  AddResult,
+  AddGuardInput,
+  AddRuleInput,
+  AddInvariantInput,
+  ConstructType,
+} from './engine/add-engine';
+
 // ─── Derive Engine ──────────────────────────────────────────────────────────
 
 export { deriveWorld, extractWorldMarkdown } from './engine/derive-engine';

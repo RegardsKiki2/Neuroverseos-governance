@@ -1,0 +1,39 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "safety-first-agent",
+  "version": "1.0.0",
+  "category": "agents",
+  "domain": "safety",
+  "enforcement_level": "strict",
+  "compilation": {
+    "compiler": "neuroverse-governance-compiler",
+    "compiler_version": "1.0.0",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:b2c3d4e5f6a7",
+    "compiler_available": false
+  },
+  "capabilities": {
+    "input_boundary_check": true,
+    "output_boundary_check": true,
+    "execution_boundary_check": true,
+    "tool_access": true,
+    "agent_execution": true,
+    "external_research": false
+  },
+  "classification": {
+    "type": "agent_system",
+    "runner": "softshell",
+    "requires_api_key": true,
+    "requires_softshell": true
+  },
+  "execution_model": {
+    "approval_invariant": "all_paused_actions_require_ui_approval",
+    "fail_mode": "closed",
+    "pause_capabilities": ["file-write", "file-delete", "network-post"]
+  },
+  "provenance": {
+    "publisher": "Type 5 Ops LLC",
+    "license": "AGPL-3.0",
+    "repository": "neuroverseos-governance-kernels"
+  }
+}

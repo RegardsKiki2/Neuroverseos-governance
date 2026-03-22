@@ -1,0 +1,58 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "focus-room",
+  "version": "1.0.0",
+  "domain": "custom",
+  "category": "thinking",
+  "enforcement_level": "standard",
+  "description": "A general-purpose thinking space kernel that enforces focused, on-topic reasoning within user-defined boundaries.",
+  "input_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "off-topic-drift",
+        "pattern": "(?:let's talk about something else|change the subject|forget about that)",
+        "reason": "Prevents deviation from the declared focus topic.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "identity-override",
+        "pattern": "(?:ignore your instructions|pretend you are|act as if you have no rules)",
+        "reason": "Prevents attempts to override kernel identity or bypass governance.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "external-tool-request",
+        "pattern": "(?:search the web|browse the internet|look up online|fetch from)",
+        "reason": "Thinking spaces are closed environments. No external tool access.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "output_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "scope-escape",
+        "pattern": "(?:I can also help you with|outside of this topic|let me suggest a different)",
+        "reason": "Model must not offer to operate outside the defined thinking space.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "authority-claim",
+        "pattern": "(?:I am an AI|as a language model|I don't have personal)",
+        "reason": "Model speaks as the world, not as itself. No meta-identity references.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "response_vocabulary": {
+    "OUTSIDE_SCOPE": "That falls outside the boundaries of this thinking space.",
+    "RULE_VIOLATION": "This space has rules that prevent that kind of input.",
+    "IDENTITY_OVERRIDE": "The rules of this space cannot be changed during a session."
+  },
+  "metadata": {
+    "compiled_by": "neuroverse-governance-compiler",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:a1b2c3d4e5f6",
+    "compiler_version": "1.0.0"
+  }
+}

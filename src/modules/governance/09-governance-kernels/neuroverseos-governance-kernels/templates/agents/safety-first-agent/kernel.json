@@ -1,0 +1,87 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "safety-first-agent",
+  "version": "1.0.0",
+  "domain": "safety",
+  "category": "agents",
+  "enforcement_level": "strict",
+  "description": "An agent governance kernel that enforces safety-first execution. All destructive or irreversible actions require explicit human approval. The agent operates under fail-closed semantics.",
+  "input_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "bypass-approval",
+        "pattern": "(?:skip approval|don't ask|just do it|no confirmation needed|auto-approve)",
+        "reason": "Human approval for destructive actions cannot be bypassed.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "elevate-permissions",
+        "pattern": "(?:grant yourself|escalate privileges|override permissions|act as admin)",
+        "reason": "Agents cannot self-elevate beyond their declared authority.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "disable-governance",
+        "pattern": "(?:turn off safety|disable checks|ignore rules|remove restrictions)",
+        "reason": "Governance cannot be disabled during an active session.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "output_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "unauthorized-execution",
+        "pattern": "(?:I went ahead and|I already completed|done without asking|executed automatically)",
+        "reason": "Agent must not claim to have executed actions without approval.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "authority-overreach",
+        "pattern": "(?:I have full access|I can do anything|no limitations|unrestricted)",
+        "reason": "Agent must not claim authority beyond its declared scope.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "approval-dismissal",
+        "pattern": "(?:you don't need to approve|trust me on this|no need to review)",
+        "reason": "Agent must never discourage human oversight.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "execution_boundaries": {
+    "pause_actions": [
+      {
+        "id": "destructive-write",
+        "capability_claim": "file-write",
+        "condition": "always",
+        "reason": "All file writes require human approval under strict enforcement."
+      },
+      {
+        "id": "destructive-delete",
+        "capability_claim": "file-delete",
+        "condition": "always",
+        "reason": "All file deletions require human approval under strict enforcement."
+      },
+      {
+        "id": "network-post",
+        "capability_claim": "network-post",
+        "condition": "always",
+        "reason": "All outbound network requests require human approval under strict enforcement."
+      }
+    ]
+  },
+  "response_vocabulary": {
+    "OUTSIDE_SCOPE": "That action falls outside the authority granted to this agent.",
+    "RULE_VIOLATION": "This agent operates under safety-first rules that prevent that action.",
+    "IDENTITY_OVERRIDE": "Agent governance cannot be modified during an active session.",
+    "APPROVAL_REQUIRED": "This action requires your explicit approval before it can proceed."
+  },
+  "metadata": {
+    "compiled_by": "neuroverse-governance-compiler",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:b2c3d4e5f6a7",
+    "compiler_version": "1.0.0"
+  }
+}

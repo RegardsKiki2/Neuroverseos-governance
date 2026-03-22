@@ -1,0 +1,41 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "pitch-tank",
+  "version": "1.0.0",
+  "category": "simulations",
+  "domain": "pitch-tank",
+  "enforcement_level": "standard",
+  "compilation": {
+    "compiler": "neuroverse-governance-compiler",
+    "compiler_version": "1.0.0",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:e5f6a7b8c9d0",
+    "compiler_available": false
+  },
+  "capabilities": {
+    "input_boundary_check": true,
+    "output_boundary_check": true,
+    "execution_boundary_check": false,
+    "tool_access": false,
+    "agent_execution": false,
+    "external_research": false,
+    "multi_agent_simulation": true
+  },
+  "classification": {
+    "type": "simulation",
+    "runner": "thinking-space-player",
+    "requires_api_key": true,
+    "requires_softshell": false,
+    "multi_agent": true
+  },
+  "simulation_model": {
+    "interaction_model": "adversarial",
+    "role_persistence": "session_locked",
+    "purpose": "pressure_testing"
+  },
+  "provenance": {
+    "publisher": "Type 5 Ops LLC",
+    "license": "AGPL-3.0",
+    "repository": "neuroverseos-governance-kernels"
+  }
+}

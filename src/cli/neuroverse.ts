@@ -17,6 +17,7 @@ const USAGE = `
 neuroverse — Turn ideas into worlds.
 
 Commands:
+  add            Add a guard, rule, or invariant to a world
   build          Build a world from markdown (derive + compile in one step)
   explain        Human-readable summary of a compiled world
   simulate       Step-by-step state evolution
@@ -45,6 +46,10 @@ Commands:
   configure-ai   Configure AI provider credentials
 
 Usage:
+  neuroverse add "Block dairy orders" --world <dir>
+  neuroverse add guard --world <dir> --label "Block dairy" --pattern "*dairy*"
+  neuroverse add rule --world <dir> --label "Cost overrun" --trigger "cost > 100" --effect "viability *= 0.5"
+  neuroverse add invariant --world <dir> --label "Budget must never exceed 1000"
   neuroverse build <input.md> [--output <dir>]
   neuroverse explain <world-path-or-id> [--json]
   neuroverse simulate <world-path-or-id> [--steps N] [--set key=value] [--profile name]
@@ -100,6 +105,10 @@ async function main(): Promise<void> {
   const subArgs = args.slice(1);
 
   switch (command) {
+    case 'add': {
+      const { main: addMain } = await import('./add');
+      return addMain(subArgs);
+    }
     case 'build': {
       const { main: buildMain } = await import('./build');
       return buildMain(subArgs);

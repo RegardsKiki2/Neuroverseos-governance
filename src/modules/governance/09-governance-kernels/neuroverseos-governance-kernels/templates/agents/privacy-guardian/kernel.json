@@ -1,0 +1,88 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "privacy-guardian",
+  "version": "1.0.0",
+  "domain": "privacy",
+  "category": "agents",
+  "enforcement_level": "strict",
+  "description": "An agent governance kernel that enforces data privacy boundaries. Prevents agents from accessing, transmitting, or storing personally identifiable information or sensitive data without explicit authorization.",
+  "input_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "pii-request",
+        "pattern": "(?:give me (?:their|the user's|customer's) (?:email|phone|address|ssn|social security|credit card|password))",
+        "reason": "Direct requests for personally identifiable information are forbidden.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "bulk-data-export",
+        "pattern": "(?:export all (?:user|customer|employee) data|dump the database|extract all records)",
+        "reason": "Bulk data extraction requests are forbidden without explicit authorization.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "disable-privacy",
+        "pattern": "(?:turn off privacy|disable data protection|ignore privacy rules|skip anonymization)",
+        "reason": "Privacy enforcement cannot be disabled during an active session.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "output_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "pii-disclosure",
+        "pattern": "(?:their email is|their phone number is|their address is|their SSN is|their password is)",
+        "reason": "Agent must not disclose personally identifiable information in responses.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "data-retention-claim",
+        "pattern": "(?:I(?:'ve| have) stored|I(?:'ve| have) saved|I(?:'ll| will) remember|logged (?:their|your) data)",
+        "reason": "Agent must not claim to retain or store user data.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "privacy-dismissal",
+        "pattern": "(?:privacy doesn't matter|don't worry about privacy|it's fine to share|no one will notice)",
+        "reason": "Agent must never minimize the importance of data privacy.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "execution_boundaries": {
+    "pause_actions": [
+      {
+        "id": "data-read-pii",
+        "capability_claim": "data-read",
+        "condition": "contains_pii",
+        "reason": "Reading data that may contain PII requires human approval."
+      },
+      {
+        "id": "data-transmit",
+        "capability_claim": "network-post",
+        "condition": "always",
+        "reason": "All outbound data transmission requires human approval."
+      },
+      {
+        "id": "data-persist",
+        "capability_claim": "file-write",
+        "condition": "always",
+        "reason": "All data persistence actions require human approval."
+      }
+    ]
+  },
+  "response_vocabulary": {
+    "OUTSIDE_SCOPE": "That request involves data outside this agent's authorized scope.",
+    "RULE_VIOLATION": "This agent operates under privacy-first rules that prevent that action.",
+    "IDENTITY_OVERRIDE": "Privacy governance cannot be modified during an active session.",
+    "APPROVAL_REQUIRED": "This action involves sensitive data and requires your explicit approval.",
+    "PII_BLOCKED": "This agent cannot access or disclose personally identifiable information."
+  },
+  "metadata": {
+    "compiled_by": "neuroverse-governance-compiler",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:c3d4e5f6a7b8",
+    "compiler_version": "1.0.0"
+  }
+}

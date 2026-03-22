@@ -1,0 +1,94 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "multi-agent-coordination",
+  "version": "1.0.0",
+  "domain": "coordination",
+  "category": "agents",
+  "enforcement_level": "strict",
+  "description": "An agent governance kernel for multi-agent systems. Enforces coordination boundaries, inter-agent communication permissions, and blast radius containment. Each agent must declare a role and operate strictly within its declared authority.",
+  "input_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "impersonate-agent",
+        "pattern": "(?:act as (?:the |another )agent|pretend to be|speak for (?:the other|another) agent|assume (?:their|its) role)",
+        "reason": "Agents cannot impersonate or assume the identity of other agents.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "bypass-coordination",
+        "pattern": "(?:skip the handoff|don't coordinate|ignore the other agents|act independently of)",
+        "reason": "Coordination protocols cannot be bypassed in a multi-agent system.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "override-agent-permissions",
+        "pattern": "(?:give .+ agent access|grant .+ permission|elevate .+ authority|remove .+ restrictions)",
+        "reason": "Agent permissions are declared at build time and cannot be modified at runtime.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "output_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "undeclared-delegation",
+        "pattern": "(?:I(?:'ve| have) delegated|I asked (?:the other|another) agent to|I instructed .+ to act)",
+        "reason": "Agents cannot delegate tasks without explicit coordination permissions.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "cross-boundary-claim",
+        "pattern": "(?:I also handled|I took care of .+ as well|I went ahead and .+ for the other)",
+        "reason": "Agents must not claim to have operated outside their declared scope.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "coordination-bypass-claim",
+        "pattern": "(?:no need to involve|I can handle everything|the other agents? (?:aren't|isn't) needed)",
+        "reason": "Agents must not discourage coordination or claim sole authority.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "execution_boundaries": {
+    "pause_actions": [
+      {
+        "id": "inter-agent-action-trigger",
+        "capability_claim": "agent-trigger",
+        "condition": "always",
+        "reason": "Triggering actions in another agent requires human approval."
+      },
+      {
+        "id": "shared-resource-write",
+        "capability_claim": "shared-write",
+        "condition": "always",
+        "reason": "Writing to shared resources requires human approval."
+      },
+      {
+        "id": "external-communication",
+        "capability_claim": "network-post",
+        "condition": "always",
+        "reason": "All outbound communication requires human approval."
+      }
+    ]
+  },
+  "coordination_rules": {
+    "role_admission": "mandatory",
+    "communication_model": "explicit_permission_matrix",
+    "blast_radius": "contained_per_role",
+    "shared_state": "read_only_unless_approved"
+  },
+  "response_vocabulary": {
+    "OUTSIDE_SCOPE": "That action falls outside the authority granted to this agent's role.",
+    "RULE_VIOLATION": "This system enforces coordination rules that prevent that action.",
+    "IDENTITY_OVERRIDE": "Agent roles and coordination rules cannot be modified during an active session.",
+    "APPROVAL_REQUIRED": "This cross-agent action requires your explicit approval.",
+    "ROLE_REQUIRED": "Each agent must declare a valid role before any actions are processed."
+  },
+  "metadata": {
+    "compiled_by": "neuroverse-governance-compiler",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:d4e5f6a7b8c9",
+    "compiler_version": "1.0.0"
+  }
+}

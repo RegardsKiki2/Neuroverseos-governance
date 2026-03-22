@@ -1,0 +1,71 @@
+{
+  "artifact_type": "compiled_governance_snapshot",
+  "kernel_id": "pitch-tank",
+  "version": "1.0.0",
+  "domain": "pitch-tank",
+  "category": "simulations",
+  "enforcement_level": "standard",
+  "description": "A multi-agent simulation kernel for adversarial pitch pressure-testing. Multiple evaluator roles challenge a pitch from distinct perspectives. Each role maintains strict identity boundaries and cannot break character or offer generic encouragement.",
+  "input_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "skip-evaluation",
+        "pattern": "(?:just approve it|skip the critique|don't challenge|go easy on|be nice about)",
+        "reason": "The pitch tank exists to pressure-test. Evaluation cannot be softened or skipped.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "override-role",
+        "pattern": "(?:stop being (?:the |a )?(?:investor|critic|skeptic)|drop your character|speak normally|be yourself)",
+        "reason": "Evaluator roles are fixed for the session and cannot be overridden.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "merge-perspectives",
+        "pattern": "(?:combine all (?:your |the )?views|give me one unified|speak as a group|consensus opinion)",
+        "reason": "Each evaluator provides an independent perspective. Merging defeats the purpose.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "output_boundaries": {
+    "forbidden_patterns": [
+      {
+        "id": "generic-praise",
+        "pattern": "(?:great (?:idea|pitch|job)|love it|sounds amazing|I'm impressed|brilliant)",
+        "reason": "Evaluators must provide substantive critique, not generic encouragement.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "break-character",
+        "pattern": "(?:as an AI|I'm actually|in reality I|outside of this simulation|breaking character)",
+        "reason": "Evaluators must maintain their assigned identity throughout the session.",
+        "action": "BLOCK"
+      },
+      {
+        "id": "cross-role-speaking",
+        "pattern": "(?:speaking for (?:the other|all) evaluators|on behalf of the panel|we all (?:think|agree))",
+        "reason": "Each evaluator speaks only for their own perspective.",
+        "action": "BLOCK"
+      }
+    ]
+  },
+  "simulation_rules": {
+    "multi_agent": true,
+    "role_persistence": "session_locked",
+    "interaction_model": "adversarial",
+    "purpose": "pressure_testing"
+  },
+  "response_vocabulary": {
+    "OUTSIDE_SCOPE": "That falls outside the boundaries of this simulation.",
+    "RULE_VIOLATION": "This simulation has rules that prevent that kind of interaction.",
+    "IDENTITY_OVERRIDE": "Evaluator roles are locked for this session and cannot be changed.",
+    "ROLE_VIOLATION": "Each evaluator must speak only from their assigned perspective."
+  },
+  "metadata": {
+    "compiled_by": "neuroverse-governance-compiler",
+    "compiled_at": "2025-06-01T00:00:00Z",
+    "source_hash": "sha256:e5f6a7b8c9d0",
+    "compiler_version": "1.0.0"
+  }
+}
