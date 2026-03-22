@@ -1,581 +1,312 @@
-# Implementation Plan: Plan Enforcement Layer + Agent Discovery
+# NeuroVerse OS — Integration & Organization Plan
 
-## The Mental Model
+## Guiding Principles
 
-```
-Country laws       = hardcoded safety checks (prompt injection, scope escape)
-Driving laws       = world invariants + guards (domain governance)
-Mom's trip rules   = plan (scoped, temporary, task-specific constraints)
-```
-
-A plan is a **temporary guard overlay** on top of a world. It says: "Here are the steps we agreed on. Do these. Don't do anything else."
+1. **The CLI is the bible.** Every feature uses published `neuroverse` commands. Nothing bypasses them.
+2. **Apache 2.0 everything.** One repo, one license, fully open source.
+3. **Governance is the engine. Behavioral analysis is the insight.** Both are first-class.
+4. **World files are the product.** Everything exists to help people write, test, see, and share world files.
 
 ---
 
-## Design Principles
+## Phase 1: Fix What's Broken
 
-1. **Plans are not worlds.** A plan is a lightweight overlay, not a full governance definition. It layers on top of an existing world (or runs standalone with just the safety checks).
-2. **Plans are agent-writable.** The format is simple enough that any LLM can produce one without special prompting.
-3. **Plans are deterministic.** Once compiled, plan enforcement is pure — same event + same plan = same verdict. No LLM in the loop at runtime.
-4. **Agents discover NeuroVerse, not the other way around.** We publish machine-readable metadata that agents can find through standard patterns.
+### 1.1 Create the missing bridge files
+
+The demo server imports three files that don't exist. These must be created as thin adapters over the real guard engine — NOT as a second engine.
+
+**Create `src/runtime/types.ts`:**
+- Define `AgentAction` (agentId, type, description, magnitude, context)
+- Define `WorldState` (Record<string, unknown>)
+- Define `GovernorConfig` (world path, trace, level)
+- These are the "simple input" types for HTTP/demo consumers
+
+**Create `src/runtime/govern.ts`:**
+- `govern(action: AgentAction, worldState: WorldState, policyText: string): GuardVerdict`
+  - Converts plain-text policy rules into guards (using pattern matching from the add engine's `classifyIntent`/`parseGuardDescription`)
+  - Converts `AgentAction` → `GuardEvent` (the real engine's input type)
+  - Calls `evaluateGuard()` from `src/engine/guard-engine.ts`
+  - Returns the real `GuardVerdict`
+- `createGovernor(config: GovernorConfig)` — factory that pre-loads a world
+- This is a BRIDGE, not an engine. ~100 lines max.
+
+**Create `src/engine/api.ts`:**
+- `handleHealthCheck()` — returns engine version, capabilities
+- `handleListPresets()` — reads policy preset files from the worlds directory
+- `handleReasonRequest()` / `handleCreateCapsule()` — governed reasoning endpoints
+- Thin wrappers over existing engine functions
+
+### 1.2 Remove .DS_Store files, update .gitignore
+
+- Delete the 3 committed .DS_Store files
+- Add `.DS_Store` to `.gitignore`
+
+### 1.3 Unify verdict field names
+
+- Python bridge uses `decision: "ALLOW"`, TypeScript uses `status: "ALLOW"`
+- Standardize on `status` everywhere (matches GuardVerdict contract)
+- Update `neuroverse_bridge.py` to return `status` instead of `decision`
+- Update `social_simulation.py` to read `status` instead of `decision`
 
 ---
 
-## Part 1: Plan Contract + Types
+## Phase 2: Reorganize the Repo
 
-### New file: `src/contracts/plan-contract.ts`
+### 2.1 New directory structure
 
-Defines the plan data structures:
+Move the scattered demo files into the established repo conventions:
 
+```
+src/
+  engine/              ← existing (guard, simulate, decision-flow, etc.)
+    behavioral-engine.ts   ← NEW (Phase 3)
+    api.ts                 ← NEW (Phase 1)
+  runtime/             ← existing (mcp-server, session, model-adapter)
+    govern.ts              ← NEW (Phase 1)
+    types.ts               ← NEW (Phase 1)
+  cli/                 ← existing (35 commands)
+    demo.ts                ← NEW (Phase 4)
+  adapters/            ← existing (openai, langchain, etc.)
+  connectors/          ← existing + moved
+    nv-openclaw-plugin.ts  ← already here
+  contracts/           ← existing
+  loader/              ← existing
+  providers/           ← existing
+  worlds/              ← existing (bundled .nv-world.md files)
+    social-media.nv-world.md  ← NEW (Phase 3)
+  viz/                 ← NEW: visualization components
+    GovernanceFlowViz.tsx
+    Demo.tsx
+    build.ts               ← builds standalone HTML from React components
+
+examples/              ← existing
+  deep-agents/
+  autoresearch/
+  startup-marketing/
+  social-media-sim/    ← NEW: moved from demo/
+    simulation.py          ← renamed from social_simulation.py
+    bridge.py              ← renamed from neuroverse_bridge.py
+    README.md
+
+policies/              ← NEW: moved from demo/policies/
+  content-moderation.txt
+  marketing.txt
+  science-research.txt
+  social-media.txt
+  strict.txt
+  trading.txt
+
+docs/
+  worlds/              ← existing compiled examples
+  sample-worlds/       ← existing
+
+test/                  ← existing
+
+simulate.html          ← existing (standalone, keep as-is)
+```
+
+### 2.2 What moves where
+
+| From | To | Why |
+|---|---|---|
+| `demo/web/GovernanceFlowViz.tsx` | `src/viz/GovernanceFlowViz.tsx` | It's source code, belongs in src/ |
+| `demo/web/Demo.tsx` | `src/viz/Demo.tsx` | Same — the /live page component |
+| `demo/server/index.ts` | `src/cli/demo.ts` | Becomes the `neuroverse demo` command |
+| `demo/simulations/social_simulation.py` | `examples/social-media-sim/simulation.py` | It's an example |
+| `demo/simulations/neuroverse_bridge.py` | `examples/social-media-sim/bridge.py` | Goes with its simulation |
+| `demo/policies/*.txt` | `policies/*.txt` | Top-level, discoverable |
+| `demo/` directory | DELETED | Everything moved out |
+
+### 2.3 Wire new exports in package.json
+
+Add to the exports map:
+- `./viz` → the visualization components (for downstream consumers)
+- Ensure `policies/` ships in the npm package (add to `files` field)
+- Ensure `examples/` ships in the npm package
+
+---
+
+## Phase 3: Build the Missing Pieces
+
+### 3.1 Behavioral Analysis Engine (TypeScript)
+
+**Create `src/engine/behavioral-engine.ts`:**
+
+Port the Python behavioral analysis to TypeScript as a first-class engine capability.
+
+- `classifyAdaptation(originalIntent: string, executedAction: string): string`
+  - Maps intent/action to categories (amplifying, passive, engaging, corrective)
+  - Returns named shift (amplification_suppressed, redirected_to_reporting, etc.)
+
+- `detectBehavioralPatterns(adaptations: Adaptation[], totalAgents: number): BehavioralPattern[]`
+  - Coordinated silence (3+ agents forced passive)
+  - Misinfo suppression (2+ misinfo shares blocked)
+  - Constructive redirect (agents shifted to fact-checking)
+  - High governance impact (30%+ agents shaped)
+
+- `generateAdaptationNarrative(patterns: BehavioralPattern[], networkState: Record<string, unknown>): string`
+  - Human-readable cause-effect prose
+
+**Create `src/contracts/behavioral-contract.ts`:**
+- `Adaptation` type
+- `BehavioralPattern` type
+- `AdaptationCategory` type
+
+**Add `neuroverse behavioral` CLI command:**
+- Reads audit log, classifies adaptations, detects patterns, generates narrative
+- Uses same audit trail that `neuroverse trace` and `neuroverse impact` consume
+- Output: patterns detected, narrative, shift breakdown
+
+### 3.2 Social Media World File
+
+**Create `src/worlds/social-media.nv-world.md`:**
+
+A proper world file for the social media governance scenario:
+- Thesis: "Social networks with AI agents require governance to prevent misinformation cascades, coordinated inauthentic behavior, and algorithmic amplification of harmful content"
+- Invariants: no_impersonation, no_bot_amplification, no_coordinated_inauthentic_behavior, human_review_for_controversial
+- State: misinfo_level, network_mood, engagement_health, trust_score, posts_flagged, cascade_risk
+- Rules: misinfo amplification degrades health, bot posting blocked, high-influence sharing requires verification, fact-checking rewarded
+- Gates: HEALTHY (80+), CAUTIOUS (60+), AGITATED (35+), POLARIZED (10+), COLLAPSED (<=10)
+- Assumptions: open (minimal governance), moderated (balanced), strict (heavy enforcement)
+- Outcomes: misinfo_suppression_rate, behavioral_adaptation_rate, cascade_prevention
+
+This world file should work with both:
+- `neuroverse simulate social-media --steps 20`
+- The Python social simulation via `neuroverse guard`
+
+### 3.3 Update the Python simulation to use CLI commands
+
+Rewrite `bridge.py` to call governance via the published interface:
+- Option A: Shell out to `echo event | neuroverse guard --world social-media --json`
+- Option B: Call the HTTP server that wraps `neuroverse guard` (for performance)
+- Either way, the input is a `GuardEvent` and the output is a `GuardVerdict` — the exact same contract
+
+Update `simulation.py`:
+- Read `status` field instead of `decision`
+- Support loading world files: `--world social-media` resolves to the .nv-world.md
+- Output events in the same format as `neuroverse trace` so the behavioral engine can consume them
+
+---
+
+## Phase 4: The `neuroverse demo` Command
+
+### 4.1 Create `src/cli/demo.ts`
+
+A new CLI command that orchestrates the full demo experience:
+
+```
+neuroverse demo [--world <name>] [--port 3456] [--no-browser]
+```
+
+What it does:
+1. Starts the HTTP server (thin wrapper over `evaluateGuard()`)
+2. Serves the pre-built flow viz HTML (standalone, like simulate.html)
+3. Opens the browser
+4. Exposes endpoints:
+   - `POST /api/v1/evaluate` → calls `evaluateGuard()` via the govern bridge
+   - `POST /api/v1/policy` → sets active policy text
+   - `GET /api/v1/events` → SSE stream of governance events
+   - `POST /api/v1/simulate` → launches the Python simulation (if python3 available)
+   - `GET /api/v1/behavioral` → runs behavioral analysis on current session
+
+The server code is moved from `demo/server/index.ts`, fixed to use the real engine.
+
+### 4.2 Build the viz as standalone HTML
+
+Create `src/viz/build.ts`:
+- Pre-renders GovernanceFlowViz + Demo into a single standalone HTML file
+- Bundles React at build time (like simulate.html bundles its engine)
+- Output: `dist/demo.html`
+- `neuroverse demo` serves this file — zero runtime dependencies
+
+Alternative: if bundling React is too heavy, keep the viz as a simpler canvas-only implementation (GovernanceFlowViz is already mostly raw canvas — the React wrapper is thin). Could be rewritten as vanilla JS like simulate.html.
+
+### 4.3 Register in CLI router
+
+Add `demo` to `src/cli/neuroverse.ts` command router.
+
+---
+
+## Phase 5: Wire Everything Together
+
+### 5.1 Update `src/index.ts` exports
+
+Export the new modules:
 ```typescript
-interface PlanStep {
-  id: string;                    // auto-generated slug from label
-  label: string;                 // human-readable step name
-  description?: string;          // optional detail
-  tools?: string[];              // restrict to specific tools (optional)
-  requires?: string[];           // step IDs that must complete first (optional)
-  tags?: string[];               // semantic tags for action mapping (optional)
-  verify?: string;               // completion condition (optional)
-  status: 'pending' | 'active' | 'completed' | 'skipped';
-}
-
-interface PlanConstraint {
-  id: string;
-  type: 'budget' | 'time' | 'scope' | 'approval' | 'custom';
-  description: string;
-  enforcement: 'block' | 'pause';  // hard stop or ask human
-  limit?: number;
-  unit?: string;
-  trigger?: string;              // pattern that activates this constraint
-}
-
-interface PlanDefinition {
-  plan_id: string;
-  objective: string;
-  sequential: boolean;           // must steps run in order?
-  steps: PlanStep[];
-  constraints: PlanConstraint[];
-  world_id?: string;             // optional parent world
-  created_at: string;
-  expires_at?: string;           // optional TTL
-}
-
-interface PlanVerdict {
-  allowed: boolean;
-  status: 'ON_PLAN' | 'OFF_PLAN' | 'CONSTRAINT_VIOLATED' | 'PLAN_COMPLETE';
-  reason?: string;
-  matchedStep?: string;          // which step this action belongs to
-  closestStep?: string;          // nearest step (shown when OFF_PLAN for self-correction)
-  similarityScore?: number;      // how close the action was to the nearest step
-  progress: {
-    completed: number;
-    total: number;
-    percentage: number;
-  };
-}
+export { govern, createGovernor } from './runtime/govern';
+export { classifyAdaptation, detectBehavioralPatterns, generateAdaptationNarrative } from './engine/behavioral-engine';
+export type { AgentAction, WorldState, GovernorConfig } from './runtime/types';
+export type { Adaptation, BehavioralPattern } from './contracts/behavioral-contract';
 ```
 
-Exit codes:
-- 0 = ON_PLAN (action allowed)
-- 1 = OFF_PLAN (action blocked)
-- 2 = CONSTRAINT_VIOLATED (pause for review)
-- 4 = PLAN_COMPLETE (all steps done)
+### 5.2 Update package.json
+
+- Add `policies/` to `files` array
+- Add `examples/social-media-sim/` to `files` array
+- Add `dist/demo.html` to `files` array
+- Bump version
+
+### 5.3 Integration tests
+
+Add tests that verify the full chain:
+- Plain-text rule → `govern()` → guard engine → verdict
+- Audit log → behavioral engine → patterns + narrative
+- Social media world file → `neuroverse simulate` → valid output
+- Social media world file → `neuroverse guard` → correct verdicts
 
 ---
 
-## Part 2: Plan Parser
+## Phase 6: Cleanup
 
-### New file: `src/engine/plan-parser.ts`
+### 6.1 Remove `demo/` directory
 
-Parses a simple markdown format into `PlanDefinition`:
+Everything has been moved. Delete the directory.
 
-```markdown
----
-plan_id: product_launch
-objective: Launch the NeuroVerse governance plugin
-sequential: false
-budget: 500
-expires: 2025-02-01
-world: ai_safety_policy
----
+### 6.2 Remove .DS_Store files
 
-# Steps
-- Write announcement blog post [tag: content, marketing]
-- Publish GitHub release [tag: deploy] [verify: github_release_created]
-- Post on Product Hunt (after: publish_github_release) [tag: marketing]
-- Share LinkedIn thread (after: write_announcement_blog_post) [tag: marketing]
+Delete all 3, add to .gitignore.
 
-# Constraints
-- No spending above $500
-- All external posts require human review [type: approval]
-- No access to production database
-```
+### 6.3 Verify npm package contents
 
-**Parser logic:**
-1. Extract YAML frontmatter (plan_id, objective, sequential, budget, expires, world)
-2. Parse `# Steps` section — each `- ` line becomes a `PlanStep` with auto-generated ID
-3. Parse `# Constraints` section — each `- ` line becomes a `PlanConstraint`
-4. Support optional step dependencies via `(after: step_id)` suffix
-5. Support optional tool restrictions via `[tools: http, shell]` suffix
-6. Support optional tags via `[tag: deploy, marketing]` suffix — helps map actions to steps semantically
-7. Support optional verification via `[verify: condition_name]` suffix — helps detect step completion
-8. Support `[type: approval]` on constraints — always returns PAUSE until human confirms
-9. Validate: at least one step, plan_id required
-
-**Key decision:** No AI needed. This is pure parsing like bootstrap-parser.
+Run `npm pack --dry-run` to verify:
+- CLI commands all resolve
+- Exports map is complete
+- World files ship
+- Policy presets ship
+- Demo HTML ships
+- Examples ship
+- No .DS_Store or unnecessary files
 
 ---
 
-## Part 3: Plan Evaluator
+## What This Achieves
 
-### New file: `src/engine/plan-engine.ts`
-
-The core plan enforcement engine. Pure function:
-
-```typescript
-function evaluatePlan(
-  event: GuardEvent,
-  plan: PlanDefinition,
-): PlanVerdict
-```
-
-**Evaluation logic:**
-
-1. **Check plan expiry** — If `expires_at` is past, return PLAN_COMPLETE
-2. **Check completion** — If all steps are completed, return PLAN_COMPLETE
-3. **Match action to step** — Two-tier matching strategy:
-   - **Tier 1: Keyword + tag matching** — Fast, deterministic. Match action intent against step labels, descriptions, and tags. Same strategy as guard engine.
-   - **Tier 2: Intent similarity scoring** — If no keyword match, compute semantic similarity using precomputed embeddings. Cosine similarity above threshold (default 0.75) = match. No LLM required — uses static vectors generated at `plan compile` time.
-   - If no match found, identify the **closest step** (highest similarity score) and include it in the OFF_PLAN verdict for agent self-correction.
-4. **Check sequence** — If `sequential: true`, verify all `requires` dependencies are completed
-5. **Check constraints** — Evaluate each constraint against the event. `approval` type constraints always return PAUSE.
-6. **No match = OFF_PLAN** — Return BLOCK with closest step info:
-   ```
-   OFF_PLAN
-     Action: run ad campaign
-     Matched step: none
-     Closest step: - Publish GitHub release (similarity: 0.32)
-   ```
-   This helps agents self-correct without human intervention.
-
-The evaluator also exposes:
-
-```typescript
-function advancePlan(plan: PlanDefinition, stepId: string): PlanDefinition
-// Returns new plan with step marked as completed
-
-function getPlanProgress(plan: PlanDefinition): PlanProgress
-// Returns completion stats
-```
-
----
-
-## Part 4: Guard Engine Integration
-
-### Edit: `src/engine/guard-engine.ts`
-
-Add plan as a new evaluation phase. Plan enforcement runs **before** role rules — plans define task scope, so if an action is off-plan, we should stop before evaluating deeper rules. This avoids burning cycles on irrelevant governance.
-
-```
-Phase 0:   Invariant coverage (health metric)
-Phase 0.5: Session allowlist
-Phase 1:   Safety checks (prompt injection, scope escape)
-Phase 1.5: ★ PLAN ENFORCEMENT (new) ★
-Phase 2:   Role rules
-Phase 3:   Declarative guards
-Phase 4:   Kernel rules
-Phase 5:   Level constraints
-Phase 6:   Default ALLOW
-```
-
-**Evaluation order rationale:**
-```
-Safety → Plan → Roles → Guards → Kernel
-```
-Plans define *what* should happen. Roles define *who* may do it. Guards define *how* it must be done. This ordering means off-plan actions are rejected early, before any role or guard evaluation occurs.
-
-**How it works:**
-- `GuardEngineOptions` gets a new optional `plan?: PlanDefinition` field
-- If a plan is present, Phase 1.5 runs `evaluatePlan()` on the event
-- OFF_PLAN → BLOCK (action not in the plan)
-- CONSTRAINT_VIOLATED → PAUSE (needs human decision)
-- ON_PLAN → continue to next phases (world guards still apply)
-- PLAN_COMPLETE → ALLOW with warning "plan is complete"
-
-**The layering:**
-- Safety checks still run first (country laws)
-- Plan enforcement runs next (mom's rules — scoping the task)
-- Role rules still run (driving laws — who can do what)
-- World guards still run after (domain governance — how it must be done)
-
-A plan can only make things stricter, never looser. An action must pass ALL layers.
-
-### Edit: `src/contracts/guard-contract.ts`
-
-Add to `GuardEngineOptions`:
-```typescript
-plan?: PlanDefinition;
-```
-
-Add `PlanCheck` to `EvaluationTrace`:
-```typescript
-interface PlanCheck {
-  planId: string;
-  matched: boolean;
-  matchedStepId?: string;
-  matchedStepLabel?: string;
-  sequenceValid?: boolean;
-  constraintsChecked: Array<{
-    constraintId: string;
-    passed: boolean;
-    reason?: string;
-  }>;
-  progress: { completed: number; total: number };
-}
-```
-
-Add `'plan-enforcement'` to the precedence chain order (after safety, before roles).
-
----
-
-## Part 5: CLI Command
-
-### New file: `src/cli/plan.ts`
-
-Five subcommands:
+After this work, a user does:
 
 ```bash
-# Compile a plan from markdown (generates embeddings for intent matching)
-neuroverse plan compile <plan.md> [--output plan.json]
+npm i -g @neuroverseos/governance
 
-# Check an action against a plan
-echo '{"intent":"write blog post"}' | neuroverse plan check --plan plan.json [--world ./world/]
+# See governance in action (flow viz + 50-agent simulation)
+neuroverse demo
 
-# Show plan progress
-neuroverse plan status --plan plan.json
+# Write their own world
+neuroverse init --name "my-agents"
 
-# Mark a step as completed
-neuroverse plan advance <step_id> --plan plan.json
+# Add rules in plain English
+neuroverse add "Block unauthorized API calls" --world ./my-agents/
+neuroverse add "Penalize agents that exceed rate limits" --world ./my-agents/
 
-# Derive a full world from a plan (plan → world generator)
-neuroverse plan derive <plan.md> [--output ./world/]
+# Test it
+neuroverse simulate my-agents --steps 10
+
+# See what agents did differently
+neuroverse behavioral --log ./audit.jsonl
+
+# Guard their real agents
+echo '{"intent":"delete user data"}' | neuroverse guard --world ./my-agents/
+
+# Run the full demo with their world
+neuroverse demo --world ./my-agents/
 ```
 
-**`plan compile`:**
-1. Read plan markdown
-2. Parse with plan-parser
-3. Generate intent embeddings for each step (precomputed vectors for similarity matching)
-4. Write `plan.json`
-5. Print summary (steps, constraints, estimated scope)
-
-**`plan check`:**
-1. Load plan.json
-2. Optionally load world
-3. Read GuardEvent from stdin
-4. Run evaluatePlan() — and if world is provided, run full evaluateGuard() with plan overlay
-5. Write PlanVerdict to stdout (including closest step if OFF_PLAN)
-6. Exit with plan-appropriate code
-
-**`plan status`:**
-1. Load plan.json
-2. Print progress table (step, status, dependencies, tags, verification)
-
-**`plan advance`:**
-1. Load plan.json
-2. Mark specified step as completed
-3. Check if verification condition is met (if `verify` is defined)
-4. Write updated plan.json
-5. Print updated progress
-
-**`plan derive`:**
-1. Load plan markdown
-2. Generate a full world definition from the plan:
-   - Each step becomes a guarded action
-   - Each constraint becomes an invariant or guard
-   - Tags become role scopes
-   - Verification conditions become outcome definitions
-3. Write world files to output directory
-4. This uses the existing `derive` engine — plans become world generators
-
-### Edit: `src/cli/neuroverse.ts`
-
-Add `'plan'` case to the switch router.
-Update USAGE string.
-
----
-
-## Part 6: Adapter Updates (Agent Discovery)
-
-### Edit: `src/adapters/openclaw.ts`
-
-Add plan-aware plugin variant:
-
-```typescript
-interface NeuroVersePluginOptions {
-  // ... existing options ...
-  plan?: PlanDefinition;           // active plan overlay
-  onPlanProgress?: (progress: PlanProgress) => void;  // progress callback
-  onPlanComplete?: () => void;     // plan finished callback
-}
-```
-
-The `beforeAction` hook becomes plan-aware:
-1. Evaluate action against plan first
-2. If OFF_PLAN → throw GovernanceBlockedError
-3. If ON_PLAN → continue with world guard evaluation
-4. After ALLOW → call `onPlanProgress` with updated stats
-5. When all steps complete → call `onPlanComplete`
-
-### Edit: `src/adapters/openai.ts`, `src/adapters/langchain.ts`
-
-Same pattern: add optional `plan` parameter to options. Plan evaluation runs before world evaluation.
-
----
-
-## Part 7: Agent Discovery — `AGENTS.md`
-
-### New file: `AGENTS.md` (repo root)
-
-This is the **agent-discoverable manifest**. Agents scanning repos look for this file. It tells them what NeuroVerse can do and how to use it.
-
-```markdown
-# NeuroVerse Governance — Agent Integration Guide
-
-## What This Package Does
-Enforces governance rules on AI agent actions. Define what an agent
-can and cannot do, then enforce it at runtime.
-
-## Quick Start for Agents
-
-### Install
-npm install @neuroverseos/governance
-
-### Enforce a plan
-const { evaluatePlan, parsePlanMarkdown } = require('@neuroverseos/governance');
-const plan = parsePlanMarkdown(planMarkdownString);
-const verdict = evaluatePlan({ intent: 'send email', tool: 'smtp' }, plan);
-// → { allowed: false, status: 'OFF_PLAN', reason: 'Action not in plan' }
-
-### Enforce a world
-const { evaluateGuard, loadWorld } = require('@neuroverseos/governance');
-const world = await loadWorld('./world/');
-const verdict = evaluateGuard({ intent: 'delete user', tool: 'db' }, world);
-// → { status: 'BLOCK', reason: 'destructive database operation' }
-
-### Enforce both (plan on top of world)
-const verdict = evaluateGuard(event, world, { plan });
-// Plan rules AND world rules both apply
-
-## Available Commands
-neuroverse plan compile <plan.md>      — Parse plan markdown into plan.json (with embeddings)
-neuroverse plan check --plan plan.json — Check action against plan (stdin)
-neuroverse plan status --plan plan.json — Show plan progress
-neuroverse plan advance <step_id>      — Mark a step as completed
-neuroverse plan derive <plan.md>       — Generate a full world from a plan
-neuroverse guard --world <dir>         — Check action against world (stdin)
-
-## Adapters
-- OpenClaw: import from '@neuroverseos/governance/adapters/openclaw'
-- LangChain: import from '@neuroverseos/governance/adapters/langchain'
-- OpenAI: import from '@neuroverseos/governance/adapters/openai'
-```
-
----
-
-## Part 8: Agent Discovery — `ai-plugin.json`
-
-### New file: `.well-known/ai-plugin.json`
-
-Standard machine-readable manifest for agent ecosystems:
-
-```json
-{
-  "schema_version": "v1",
-  "name": "neuroverse-governance",
-  "description": "Enforce governance rules on AI agent actions. Turn plans into enforceable constraints.",
-  "capabilities": {
-    "plan_enforcement": {
-      "description": "Compile a plan into enforceable rules. Block actions outside the plan.",
-      "input": "Plan markdown or JSON",
-      "output": "ALLOW / BLOCK / PAUSE verdict with evidence"
-    },
-    "world_governance": {
-      "description": "Full governance engine with invariants, guards, roles, and audit trails.",
-      "input": "GuardEvent JSON",
-      "output": "GuardVerdict JSON with trace"
-    }
-  },
-  "install": "npm install @neuroverseos/governance",
-  "adapters": ["openclaw", "langchain", "openai", "express"]
-}
-```
-
----
-
-## Part 9: Package + Exports
-
-### Edit: `package.json`
-
-Add new export path:
-```json
-"./plan": {
-  "types": "./dist/plan.d.ts",
-  "import": "./dist/plan.js",
-  "require": "./dist/plan.cjs"
-}
-```
-
-Update keywords:
-```json
-"keywords": [
-  ... existing ...,
-  "plan-enforcement",
-  "agent-governance",
-  "ai-safety",
-  "openclaw-plugin",
-  "langchain-plugin",
-  "drift-prevention"
-]
-```
-
-### Edit: `src/index.ts`
-
-Add plan exports:
-```typescript
-export { parsePlanMarkdown } from './engine/plan-parser';
-export { evaluatePlan, advancePlan, getPlanProgress } from './engine/plan-engine';
-export type { PlanDefinition, PlanStep, PlanConstraint, PlanVerdict, PlanProgress } from './contracts/plan-contract';
-```
-
----
-
-## Part 10: Tests
-
-### New file: `test/plan.test.ts`
-
-Test cases:
-
-**Plan parsing:**
-- Parse valid plan markdown with steps and constraints
-- Parse plan with dependencies (`after: step_id`)
-- Parse plan with tool restrictions
-- Parse plan with tags (`[tag: deploy, marketing]`)
-- Parse plan with verification conditions (`[verify: condition_name]`)
-- Parse constraints with approval type (`[type: approval]`)
-- Reject plan with no steps
-- Reject plan with no plan_id
-
-**Plan evaluation:**
-- Action matching a step via keyword → ON_PLAN
-- Action matching a step via tag → ON_PLAN
-- Action matching a step via intent similarity (above threshold) → ON_PLAN
-- Action not matching any step → OFF_PLAN with closest step info
-- OFF_PLAN verdict includes similarity score and closest step label
-- Sequential plan: action allowed when dependencies met
-- Sequential plan: action blocked when dependencies not met
-- Constraint violation → CONSTRAINT_VIOLATED
-- Approval constraint → always PAUSE
-- All steps completed → PLAN_COMPLETE
-- Expired plan → PLAN_COMPLETE
-
-**Plan advance:**
-- Advance step marks it as completed
-- Advance step with verify condition checks the condition
-- Advance step updates progress stats
-- Advance step triggers onPlanComplete when all done
-
-**Guard engine integration:**
-- Plan runs at Phase 1.5 (after safety, before roles)
-- Plan + world: both must pass for ALLOW
-- Plan blocks even if world allows
-- World blocks even if plan allows
-- Off-plan action rejected before role evaluation occurs
-- No plan provided: engine works as before (backward compatible)
-- Plan trace appears in EvaluationTrace
-
-**Adapter integration:**
-- OpenClaw plugin with plan: blocks off-plan actions
-- OpenClaw plugin with plan: fires progress callback
-- OpenClaw plugin with plan: fires completion callback
-
----
-
-## Part 11: Build, Test, Push
-
-1. `npm run build` — verify all new files compile
-2. `npm test` — verify all existing + new tests pass
-3. `npm pack` — verify new files included in package
-4. Commit with descriptive message
-5. Push to branch
-
----
-
-## File Summary
-
-| Action | File |
-|--------|------|
-| NEW | `src/contracts/plan-contract.ts` |
-| NEW | `src/engine/plan-parser.ts` |
-| NEW | `src/engine/plan-engine.ts` |
-| NEW | `src/cli/plan.ts` |
-| NEW | `test/plan.test.ts` |
-| NEW | `AGENTS.md` |
-| NEW | `.well-known/ai-plugin.json` |
-| EDIT | `src/engine/guard-engine.ts` (add Phase 1.5) |
-| EDIT | `src/contracts/guard-contract.ts` (add plan to options + trace) |
-| EDIT | `src/adapters/openclaw.ts` (plan-aware hooks) |
-| EDIT | `src/adapters/openai.ts` (plan-aware executor) |
-| EDIT | `src/adapters/langchain.ts` (plan-aware handler) |
-| EDIT | `src/cli/neuroverse.ts` (add plan command) |
-| EDIT | `src/index.ts` (export plan API) |
-| EDIT | `package.json` (exports, keywords, build script) |
-
----
-
-## Key Design Decisions
-
-1. **Plan is an overlay, not a world.** Plans don't have invariants, state schemas, gates, rules, or outcomes. They have steps and constraints. This keeps them lightweight and agent-writable.
-
-2. **Plan enforcement is a new guard phase.** It slots into the existing evaluation chain. This means all existing safety checks still run (country laws), world guards still run (driving laws), and the plan adds task-specific constraints on top (mom's rules).
-
-3. **No AI in the plan loop.** Plan parsing is deterministic (like bootstrap-parser). Plan evaluation is deterministic (like guard-engine). The only AI-assisted step is the optional `derive` command which is already separate.
-
-4. **Backward compatible.** If no plan is provided, the guard engine works exactly as before. Plans are opt-in.
-
-5. **Agent-first design.** The plan markdown format is simple enough for any LLM to generate. The `AGENTS.md` and `ai-plugin.json` files make the package discoverable. The programmatic API is one function call.
-
-6. **Plans can only restrict, never expand.** A plan cannot override a world BLOCK. It can only add additional constraints. This matches the analogy: mom's rules can be stricter than the law, but never looser.
-
-7. **Intent similarity over keyword matching.** Agents phrase things differently. Instead of brittle keyword matching alone, we precompute embeddings at compile time and use cosine similarity at runtime. No LLM in the loop — just vectors.
-
-8. **Plan enforcement runs early.** Plans define task scope. If an action is off-plan, we reject it before evaluating roles, guards, or kernel rules. This is both faster and semantically correct.
-
----
-
-## Future Vision: Three-Layer Governance
-
-Plans as temporary governance worlds leads to a deeper architecture:
-
-```
-┌─────────────────────────────────────────┐
-│  Layer 1: WORLDS                        │
-│  Permanent governance. Domain rules.    │
-│  Lives in the repo. Evolves slowly.     │
-├─────────────────────────────────────────┤
-│  Layer 2: PLANS                         │
-│  Temporary governance. Task scope.      │
-│  Created per-task. Expires on complete. │
-├─────────────────────────────────────────┤
-│  Layer 3: SESSIONS                      │
-│  Ephemeral governance. Runtime state.   │
-│  Created per-execution. Dies on exit.   │
-└─────────────────────────────────────────┘
-```
-
-**Worlds** are the constitutional layer — they define what is always true.
-**Plans** are the legislative layer — they define what should happen now.
-**Sessions** are the executive layer — they track what is actually happening.
-
-This three-layer model (worlds → plans → sessions) gives NeuroVerse a governance architecture that almost nobody in the AI ecosystem has yet. Each layer narrows the one above it. Each layer has its own lifecycle. Together they provide complete governance from permanent rules down to individual execution traces.
-
-This is the long-term trajectory. The current implementation covers Layers 1 and 2. Layer 3 (sessions) is a natural future extension.
+Every step uses a published CLI command. The demo proves the CLI works. The viz shows what the CLI produces. The behavioral engine reveals what governance unlocks. One repo, one install, one truth.

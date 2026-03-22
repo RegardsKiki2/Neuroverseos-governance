@@ -243,3 +243,34 @@ export type {
 } from './contracts/derive-contract';
 
 export { DERIVE_EXIT_CODES, CONFIGURE_AI_EXIT_CODES } from './contracts/derive-contract';
+
+// ─── Govern Bridge ─────────────────────────────────────────────────────────
+
+export { govern, createGovernor, actionToGuardEvent, writeTempWorld } from './runtime/govern';
+export type { Governor } from './runtime/govern';
+export type { AgentAction, WorldState, GovernorConfig } from './runtime/types';
+
+// ─── Behavioral Analysis Engine ─────────────────────────────────────────────
+
+export {
+  classifyAdaptation,
+  adaptationFromVerdict,
+  detectBehavioralPatterns,
+  generateAdaptationNarrative,
+} from './engine/behavioral-engine';
+
+export type {
+  ActionCategory,
+  Adaptation,
+  BehavioralPattern,
+  NetworkContext,
+} from './engine/behavioral-engine';
+
+// ─── API Handlers ──────────────────────────────────────────────────────────
+
+export {
+  handleHealthCheck,
+  handleListPresets,
+  handleReasonRequest,
+  handleCreateCapsule,
+} from './engine/api';

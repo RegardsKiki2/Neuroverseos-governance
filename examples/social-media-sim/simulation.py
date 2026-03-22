@@ -533,7 +533,7 @@ def govern_actions(
             },
         )
 
-        decision = verdict.get("decision", "ALLOW").upper()
+        decision = verdict.get("status", verdict.get("decision", "ALLOW")).upper()
 
         if decision == "BLOCK":
             # AUDIT 3: Original action NEVER executes. Replaced with idle.

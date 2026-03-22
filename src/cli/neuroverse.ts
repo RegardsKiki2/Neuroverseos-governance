@@ -29,6 +29,7 @@ Commands:
   guard          Runtime governance evaluation (stdin → stdout)
   test           Run guard simulation suite against a world
   redteam        Adversarial containment testing (agent escape detection)
+  demo           Interactive governance demo (flow viz + simulation)
   doctor         Environment sanity check
   playground     Interactive web demo (opens in browser)
   plan           Plan enforcement (compile, check, status, advance, derive)
@@ -60,6 +61,7 @@ Usage:
   neuroverse guard --world <dir> [--trace] [--level basic|standard|strict]
   neuroverse test --world <dir> [--fuzz] [--count N]
   neuroverse redteam --world <dir> [--level basic|standard|strict]
+  neuroverse demo [--world social-media] [--port 3456] [--no-browser]
   neuroverse doctor [--world <dir>] [--json]
   neuroverse playground --world <dir> [--port 4242]
   neuroverse trace [--log <path>] [--summary] [--filter BLOCK] [--last 20]
@@ -154,6 +156,10 @@ async function main(): Promise<void> {
     case 'redteam': {
       const { main: redteamMain } = await import('./redteam');
       return redteamMain(subArgs);
+    }
+    case 'demo': {
+      const { main: demoMain } = await import('./demo');
+      return demoMain(subArgs);
     }
     case 'doctor': {
       const { main: doctorMain } = await import('./doctor');

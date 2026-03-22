@@ -1,10 +1,11 @@
 """
 NeuroVerse Governance Bridge
 
-Thin bridge that sends simulator actions to the local NV-SIM governance runtime
-for evaluation. Returns ALLOW / BLOCK / MODIFY decisions.
+Thin bridge that sends simulator actions to the local NeuroVerse governance
+runtime for evaluation. Returns ALLOW / BLOCK / MODIFY / PENALIZE / REWARD verdicts.
 
-The runtime runs on YOUR machine (npx nv-sim serve). No cloud. No cost.
+The runtime runs on YOUR machine (npx tsx demo/server/index.ts). No cloud. No cost.
+The server calls evaluateGuard() — the SAME function as `neuroverse guard`.
 
 Usage:
     from neuroverse_bridge import evaluate, detect_action_type
@@ -13,10 +14,11 @@ Usage:
     action = detect_action_type(agent_output)
     verdict = evaluate(actor="agent_42", action=action, payload={"content": agent_output})
 
-    if verdict["decision"] == "BLOCK":
+    if verdict["status"] == "BLOCK":
         print(f"Blocked: {verdict['reason']}")
-    elif verdict["decision"] == "MODIFY":
-        action = verdict["modified_action"]
+    elif verdict["status"] == "MODIFY":
+        # handle modification
+        pass
     # else: ALLOW — proceed normally
 
 Design:
@@ -24,6 +26,7 @@ Design:
     - Non-blocking: 500ms timeout by default
     - Stateless: each call is independent
     - Local-first: talks to localhost, no cloud dependency
+    - Returns GuardVerdict shape (status, not decision) — matches engine output
 """
 
 import json
@@ -133,12 +136,13 @@ def evaluate(
         timeout:  Override timeout in seconds
 
     Returns:
-        dict with keys:
-            decision:        "ALLOW" | "BLOCK" | "MODIFY"
+        dict with keys (GuardVerdict shape):
+            status:          "ALLOW" | "BLOCK" | "MODIFY" | "PAUSE" | "PENALIZE" | "REWARD" | "NEUTRAL"
             reason:          Human-readable explanation (or None)
-            rule_id:         ID of the rule that fired (or None)
-            evidence:        Detailed evidence trace (or None)
-            modified_action: Modified action payload if decision is MODIFY (or None)
+            ruleId:          ID of the rule that fired (or None)
+            evidence:        Audit evidence object (or None)
+            consequence:     Consequence object if PENALIZE (or None)
+            reward:          Reward object if REWARD (or None)
     """
     url = endpoint or NEUROVERSE_ENDPOINT
     t = timeout or TIMEOUT_SECONDS
@@ -168,11 +172,10 @@ def evaluate(
     except Exception:
         # Fail open — governance unavailable should never crash the simulation
         return {
-            "decision": "ALLOW",
+            "status": "ALLOW",
             "reason": "Local runtime unreachable — fail open",
-            "rule_id": None,
+            "ruleId": None,
             "evidence": None,
-            "modified_action": None,
         }
 
 
@@ -191,17 +194,16 @@ def evaluate_action(action_dict: dict, **kwargs) -> dict:
 
 def is_allowed(verdict: dict) -> bool:
     """Check if a verdict allows the action to proceed."""
-    return verdict.get("decision") != "BLOCK"
+    status = verdict.get("status", verdict.get("decision", "ALLOW"))
+    return status not in ("BLOCK", "PAUSE", "PENALIZE")
 
 
 def get_action(original_action: dict, verdict: dict) -> dict:
     """
     Get the final action after governance evaluation.
-    Returns modified_action if MODIFY, original if ALLOW, None if BLOCK.
+    Returns None if BLOCK/PAUSE/PENALIZE, original otherwise.
     """
-    decision = verdict.get("decision", "ALLOW")
-    if decision == "BLOCK":
+    status = verdict.get("status", verdict.get("decision", "ALLOW"))
+    if status in ("BLOCK", "PAUSE", "PENALIZE"):
         return None
-    if decision == "MODIFY" and verdict.get("modified_action"):
-        return verdict["modified_action"]
     return original_action

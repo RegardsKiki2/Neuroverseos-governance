@@ -60,6 +60,8 @@
   "files": [
     "dist",
     "dist/worlds",
+    "policies",
+    "simulate.html",
     "LICENSE.md",
     "README.md",
     "AGENTS.md",
@@ -68,7 +70,7 @@
     ".well-known"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli/neuroverse.ts src/cli/plan.ts src/cli/run.ts src/adapters/index.ts src/adapters/langchain.ts src/adapters/openai.ts src/adapters/openclaw.ts src/adapters/express.ts src/adapters/autoresearch.ts src/adapters/deep-agents.ts --format esm,cjs --dts --clean && cp src/worlds/derivation-world.nv-world.md dist/worlds/derivation-world.nv-world.md && cp src/worlds/autoresearch.nv-world.md dist/worlds/autoresearch.nv-world.md && cp src/worlds/coding-agent.nv-world.md dist/worlds/coding-agent.nv-world.md",
+    "build": "tsup src/index.ts src/cli/neuroverse.ts src/cli/plan.ts src/cli/run.ts src/adapters/index.ts src/adapters/langchain.ts src/adapters/openai.ts src/adapters/openclaw.ts src/adapters/express.ts src/adapters/autoresearch.ts src/adapters/deep-agents.ts --format esm,cjs --dts --clean && cp src/worlds/*.nv-world.md dist/worlds/",
     "prebuild": "mkdir -p dist/worlds",
     "dev": "tsup src/index.ts src/cli/neuroverse.ts --format esm,cjs --dts --watch",
     "test": "vitest run",

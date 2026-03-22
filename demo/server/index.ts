@@ -2,48 +2,81 @@
 /**
  * NeuroVerse API Server
  *
- * Lightweight HTTP server that runs the governance engine server-side
- * where @neuroverseos/governance can actually load and enforce rules.
+ * Thin HTTP wrapper over the real guard engine.
+ * NO governance logic lives here. This server:
+ *   1. Accepts HTTP requests
+ *   2. Converts them to the engine's types
+ *   3. Calls evaluateGuard() — the SAME function as `neuroverse guard`
+ *   4. Returns the verdict
  *
- * The browser UI calls these endpoints instead of importing the engine directly.
+ * The CLI is the bible. This server is just a network interface to it.
  *
  * Endpoints:
+ *   POST /api/v1/evaluate        — Evaluate a single action against policy
+ *   POST /api/evaluate           — Same (connector compat)
+ *   POST /api/v1/policy          — Set active governance policy (writes temp world)
+ *   GET  /api/v1/policy          — Get active governance policy
+ *   GET  /api/v1/events          — SSE stream of governance events
+ *   POST /api/v1/simulate        — Launch governed simulation
+ *   POST /api/v1/simulate/stop   — Stop running simulation
+ *   GET  /api/v1/simulate/source — View simulation source code
  *   POST /api/v1/reason          — Run governed reasoning on a scenario
  *   POST /api/v1/reason/capsule  — Create a shareable scenario capsule
  *   GET  /api/v1/reason/health   — Engine health check
  *   GET  /api/v1/reason/presets  — List preset scenario templates
- *   POST /api/v1/evaluate        — Evaluate a single action against policy
- *   POST /api/v1/policy          — Set active governance policy
- *   GET  /api/v1/policy          — Get active governance policy
- *   GET  /api/v1/events          — SSE stream of governance events
  *
  * Usage:
- *   npx tsx src/server/index.ts
- *   # or after build:
- *   node dist/server/index.js
+ *   npx tsx demo/server/index.ts
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   handleReasonRequest,
   handleCreateCapsule,
   handleHealthCheck,
   handleListPresets,
-} from "../engine/api";
-import { govern, createGovernor } from "../runtime/govern";
-import type { AgentAction, WorldState, GovernorConfig } from "../runtime/types";
+} from "../../src/engine/api";
+import { govern, writeTempWorld, createGovernor } from "../../src/runtime/govern";
+import { loadWorld } from "../../src/loader/world-loader";
+import type { AgentAction } from "../../src/runtime/types";
+import type { WorldDefinition } from "../../src/types";
 
 const PORT = parseInt(process.env.NV_PORT ?? "3456", 10);
 
 // ============================================
-// ACTIVE POLICY STORE (in-memory)
+// TEMP WORLD DIRECTORY — the runtime sandbox
+// ============================================
+// Policy rules are written here as kernel.json.
+// All evaluation goes through loadWorld() → evaluateGuard().
+// ONE engine. ONE path. NO interpretation.
+
+const TEMP_WORLD_DIR = join(tmpdir(), "neuroverse-demo");
+
+// ============================================
+// ACTIVE POLICY STORE
 // ============================================
 
 let activePolicy = "";
 let policyUpdatedAt: string | null = null;
+let activeWorld: WorldDefinition | null = null;
 let activeSimulation: ChildProcess | null = null;
+
+/**
+ * Write current policy to temp world dir and reload.
+ * This is the ONLY place rules become a world.
+ */
+async function syncPolicyToWorld(): Promise<void> {
+  if (!activePolicy) {
+    activeWorld = null;
+    return;
+  }
+  const lines = activePolicy.split("\n").filter(l => l.trim().length > 0);
+  await writeTempWorld(TEMP_WORLD_DIR, lines);
+  activeWorld = await loadWorld(TEMP_WORLD_DIR);
+}
 
 // ============================================
 // SSE EVENT BROADCASTING
@@ -95,25 +128,13 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 /**
  * Accept either:
- *   { action: AgentAction, worldState, policyText }    — full format (UI)
- *   { actor, action, payload, world }                   — connector format (CLI wrapper)
+ *   { action: AgentAction }                — full format (UI)
+ *   { actor, action, payload, world }      — connector format (Python bridge)
  */
-function normalizeEvaluateRequest(body: Record<string, any>): {
-  action: AgentAction;
-  worldState: WorldState;
-  policyText: string;
-} | { error: string } {
+function normalizeAction(body: Record<string, any>): AgentAction | { error: string } {
   // Full format: action is an AgentAction object
   if (body.action && typeof body.action === "object" && body.action.agentId) {
-    const policyText = body.policyText ?? activePolicy;
-    if (!policyText) {
-      return { error: "No policyText provided and no active policy set. POST /api/v1/policy first, or include policyText in request." };
-    }
-    return {
-      action: body.action as AgentAction,
-      worldState: body.worldState ?? {},
-      policyText,
-    };
+    return body.action as AgentAction;
   }
 
   // Connector format: actor + action strings
@@ -123,34 +144,21 @@ function normalizeEvaluateRequest(body: Record<string, any>): {
     const payload = body.payload ?? {};
     const description = payload.description ?? `${agentId}: ${actionType}`;
     const confidence = payload.confidence ?? 0.5;
-    const magnitude = confidence;
 
-    const action: AgentAction = {
+    return {
       agentId,
       type: actionType,
       description,
-      magnitude,
+      magnitude: confidence,
       context: {
         ...payload,
         world: body.world,
         source: "connector",
       },
     };
-
-    const worldState: WorldState = {};
-    if (body.state && typeof body.state === "object") {
-      Object.assign(worldState, body.state);
-    }
-
-    const policyText = body.policyText ?? activePolicy;
-    if (!policyText) {
-      return { error: "No policyText provided and no active policy set. POST /api/v1/policy first, or include policyText in request." };
-    }
-
-    return { action, worldState, policyText };
   }
 
-  return { error: "Invalid request format. Send either { action: AgentAction, policyText } or { actor, action, payload }." };
+  return { error: "Invalid request format. Send either { action: AgentAction } or { actor, action, payload }." };
 }
 
 // ============================================
@@ -179,21 +187,15 @@ const server = createServer(async (req, res) => {
         "Access-Control-Allow-Origin": "*",
       });
 
-      // Send initial connection event
       const connectMsg = `data: ${JSON.stringify({ type: "connected", activePolicy: activePolicy.length > 0, eventCount: eventCounter })}\n\n`;
       res.write(connectMsg);
 
       sseClients.add(res);
+      req.on("close", () => { sseClients.delete(res); });
 
-      req.on("close", () => {
-        sseClients.delete(res);
-      });
-
-      // Keep alive
       const keepAlive = setInterval(() => {
         try { res.write(": keepalive\n\n"); } catch { clearInterval(keepAlive); }
       }, 15000);
-
       req.on("close", () => clearInterval(keepAlive));
       return;
     }
@@ -201,6 +203,7 @@ const server = createServer(async (req, res) => {
     res.setHeader("Content-Type", "application/json");
 
     // POST /api/v1/policy — Set active governance policy
+    // Writes rules to temp world dir → loads through real engine
     if (url === "/api/v1/policy" && req.method === "POST") {
       const body = JSON.parse(await readBody(req));
       const text = body.policyText ?? body.policy ?? body.text;
@@ -213,6 +216,9 @@ const server = createServer(async (req, res) => {
 
       activePolicy = text;
       policyUpdatedAt = new Date().toISOString();
+
+      // Write to temp world and reload — this is the bridge
+      await syncPolicyToWorld();
 
       broadcastEvent({
         type: "policy_updated",
@@ -269,41 +275,47 @@ const server = createServer(async (req, res) => {
 
     // GET /api/v1/reason/presets
     if (url === "/api/v1/reason/presets" && req.method === "GET") {
-      const result = handleListPresets();
+      const result = await handleListPresets(join(process.cwd(), "policies"));
       res.writeHead(200);
       res.end(JSON.stringify(result));
       return;
     }
 
-    // POST /api/v1/evaluate OR /api/evaluate — Direct governance evaluation
-    // Accepts both full format (UI) and connector format (CLI wrapper)
-    // /api/evaluate is the path the CLI connector uses
+    // POST /api/v1/evaluate OR /api/evaluate — Governance evaluation
+    // Uses the REAL guard engine. Same evaluateGuard() as `neuroverse guard`.
     if ((url === "/api/v1/evaluate" || url === "/api/evaluate") && req.method === "POST") {
       const body = JSON.parse(await readBody(req));
-      const normalized = normalizeEvaluateRequest(body);
+      const action = normalizeAction(body);
 
-      if ("error" in normalized) {
+      if ("error" in action) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: normalized.error }));
+        res.end(JSON.stringify({ error: action.error }));
         return;
       }
 
-      const verdict = govern(normalized.action, normalized.worldState, normalized.policyText);
+      if (!activeWorld) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: "No governance rules set. POST /api/v1/policy first." }));
+        return;
+      }
 
-      // Broadcast to all SSE clients
+      // THE BRIDGE: AgentAction → govern() → evaluateGuard() → GuardVerdict
+      const verdict = govern(action, activeWorld);
+
+      // Broadcast to SSE clients — using the real GuardVerdict shape
       broadcastEvent({
         type: "evaluation",
-        action: normalized.action,
+        action,
         verdict: {
           status: verdict.status,
           reason: verdict.reason,
-          rulesFired: verdict.rulesFired,
-          confidence: verdict.confidence,
+          ruleId: verdict.ruleId,
           consequence: verdict.consequence,
           reward: verdict.reward,
         },
       });
 
+      // Return full verdict (same shape as `neuroverse guard` output)
       res.writeHead(200);
       res.end(JSON.stringify(verdict));
       return;
@@ -321,13 +333,14 @@ const server = createServer(async (req, res) => {
       const policyText = body.policyText ?? activePolicy;
 
       // Set policy before running
-      if (policyText) {
+      if (policyText && policyText !== activePolicy) {
         activePolicy = policyText;
         policyUpdatedAt = new Date().toISOString();
+        await syncPolicyToWorld();
         broadcastEvent({ type: "policy_updated", policyText: activePolicy, updatedAt: policyUpdatedAt });
       }
 
-      if (!activePolicy) {
+      if (!activeWorld) {
         res.writeHead(400);
         res.end(JSON.stringify({ error: "No governance rules set. Define rules first." }));
         return;
@@ -339,7 +352,20 @@ const server = createServer(async (req, res) => {
         activeSimulation = null;
       }
 
-      const scriptPath = join(process.cwd(), "bridge", "social_simulation.py");
+      // Look for simulation script in examples/ (reorganized) or demo/ (legacy)
+      const { existsSync } = await import("node:fs");
+      const scriptCandidates = [
+        join(process.cwd(), "examples", "social-media-sim", "simulation.py"),
+        join(process.cwd(), "demo", "simulations", "social_simulation.py"),
+      ];
+      const scriptPath = scriptCandidates.find(p => existsSync(p));
+
+      if (!scriptPath) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: "Simulation script not found" }));
+        return;
+      }
+
       const args = [scriptPath, "--agents", String(agents), "--steps", String(steps)];
 
       if (llmApiKey) {
@@ -411,16 +437,30 @@ const server = createServer(async (req, res) => {
     if (url === "/api/v1/simulate/source" && req.method === "GET") {
       try {
         const { readFileSync } = await import("node:fs");
-        const simSource = readFileSync(join(process.cwd(), "bridge", "social_simulation.py"), "utf-8");
-        const bridgeSource = readFileSync(join(process.cwd(), "bridge", "neuroverse_bridge.py"), "utf-8");
+        const { existsSync } = await import("node:fs");
+
+        // Try reorganized path first, then legacy
+        const candidates = [
+          { sim: "examples/social-media-sim/simulation.py", bridge: "examples/social-media-sim/bridge.py" },
+          { sim: "demo/simulations/social_simulation.py", bridge: "demo/simulations/neuroverse_bridge.py" },
+        ];
+
+        let files: Array<{ name: string; path: string; content: string; language: string }> = [];
+        for (const c of candidates) {
+          const simPath = join(process.cwd(), c.sim);
+          const bridgePath = join(process.cwd(), c.bridge);
+          if (existsSync(simPath)) {
+            files.push({ name: "simulation.py", path: c.sim, content: readFileSync(simPath, "utf-8"), language: "python" });
+            if (existsSync(bridgePath)) {
+              files.push({ name: "bridge.py", path: c.bridge, content: readFileSync(bridgePath, "utf-8"), language: "python" });
+            }
+            break;
+          }
+        }
+
         res.writeHead(200);
-        res.end(JSON.stringify({
-          files: [
-            { name: "social_simulation.py", path: "bridge/social_simulation.py", content: simSource, language: "python" },
-            { name: "neuroverse_bridge.py", path: "bridge/neuroverse_bridge.py", content: bridgeSource, language: "python" },
-          ],
-        }));
-      } catch (err) {
+        res.end(JSON.stringify({ files }));
+      } catch {
         res.writeHead(500);
         res.end(JSON.stringify({ error: "Could not read source files" }));
       }
@@ -440,9 +480,11 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`\n  NeuroVerse API Server`);
   console.log(`  http://localhost:${PORT}`);
+  console.log(`\n  Engine: @neuroverseos/governance (evaluateGuard)`);
+  console.log(`  Temp world: ${TEMP_WORLD_DIR}`);
   console.log(`\n  Endpoints:`);
-  console.log(`    POST /api/v1/evaluate        — Governance evaluation (real)`);
-  console.log(`    POST /api/v1/policy          — Set active governance rules`);
+  console.log(`    POST /api/v1/evaluate        — Governance evaluation (real engine)`);
+  console.log(`    POST /api/v1/policy          — Set rules → writes temp world → evaluateGuard()`);
   console.log(`    GET  /api/v1/policy          — Get active governance rules`);
   console.log(`    GET  /api/v1/events          — SSE stream (live governance feed)`);
   console.log(`    POST /api/v1/simulate        — Launch governed simulation`);
@@ -451,6 +493,5 @@ server.listen(PORT, () => {
   console.log(`    POST /api/v1/reason          — Governed reasoning`);
   console.log(`    GET  /api/v1/reason/health   — Health check`);
   console.log(`    GET  /api/v1/reason/presets  — Scenario presets`);
-  console.log(`\n  Governance engine: @neuroverseos/governance`);
-  console.log(`  Rules ARE enforced. This is not a fallback.\n`);
+  console.log(`\n  ONE engine. ONE path. CLI is the bible.\n`);
 });
