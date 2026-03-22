@@ -193,6 +193,10 @@ async function main(): Promise<void> {
       const { main: impactMain } = await import('./impact');
       return impactMain(subArgs);
     }
+    case 'behavioral': {
+      const { main: behavioralMain } = await import('./behavioral');
+      return behavioralMain(subArgs);
+    }
     case 'world': {
       const { main: worldMain } = await import('./world');
       return worldMain(subArgs);

@@ -21,9 +21,10 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { join } from 'node:path';
+import { join, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   handleReasonRequest,
   handleCreateCapsule,
@@ -35,6 +36,8 @@ import { loadWorld } from '../loader/world-loader';
 import { resolveWorldPath } from '../loader/world-resolver';
 import type { AgentAction } from '../runtime/types';
 import type { WorldDefinition } from '../types';
+import { adaptationFromVerdict, detectBehavioralPatterns, generateAdaptationNarrative } from '../engine/behavioral-engine';
+import type { GuardVerdict } from '../contracts/guard-contract';
 
 // ─── Arg parsing ────────────────────────────────────────────────────────────
 
@@ -103,6 +106,42 @@ Same evaluateGuard() as \`neuroverse guard\`. ONE engine. ONE path.
 
   const sseClients = new Set<ServerResponse>();
   let eventCounter = 0;
+  const evaluationHistory: Array<{ action: AgentAction; verdict: GuardVerdict }> = [];
+
+  // ─── Viz static file serving ──────────────────────────────────────────
+  function resolveVizDir(): string | null {
+    // Check multiple locations for the built viz
+    const candidates = [
+      join(process.cwd(), 'dist', 'viz'),
+      join(process.cwd(), 'node_modules', '@neuroverseos', 'governance', 'dist', 'viz'),
+    ];
+    // Also check relative to this file (for npm-installed packages)
+    try {
+      const thisDir = typeof __dirname !== 'undefined' ? __dirname : join(fileURLToPath(import.meta.url), '..');
+      candidates.push(join(thisDir, '..', 'viz'));
+    } catch { /* ok */ }
+    for (const dir of candidates) {
+      if (existsSync(join(dir, 'index.html'))) return dir;
+    }
+    return null;
+  }
+
+  const MIME_TYPES: Record<string, string> = {
+    '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
+    '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
+    '.woff': 'font/woff', '.woff2': 'font/woff2',
+  };
+
+  function serveStaticFile(res: ServerResponse, filePath: string): boolean {
+    if (!existsSync(filePath)) return false;
+    const ext = extname(filePath);
+    const mime = MIME_TYPES[ext] ?? 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mime });
+    res.end(readFileSync(filePath));
+    return true;
+  }
+
+  const vizDir = resolveVizDir();
 
   function broadcastEvent(event: Record<string, unknown>) {
     const id = ++eventCounter;
@@ -218,6 +257,7 @@ Same evaluateGuard() as \`neuroverse guard\`. ONE engine. ONE path.
           return;
         }
         const verdict = govern(action, activeWorld);
+        evaluationHistory.push({ action, verdict });
         broadcastEvent({
           type: 'evaluation',
           action,
@@ -359,6 +399,45 @@ Same evaluateGuard() as \`neuroverse guard\`. ONE engine. ONE path.
       if (url === '/api/v1/reason/presets' && req.method === 'GET') {
         res.writeHead(200);
         res.end(JSON.stringify(await handleListPresets(join(process.cwd(), 'policies'))));
+        return;
+      }
+
+      // Behavioral analysis
+      if (url === '/api/v1/behavioral' && req.method === 'GET') {
+        const adaptations = evaluationHistory.map(({ action, verdict }) => {
+          const executed = verdict.status === 'BLOCK' ? 'idle' : action.type;
+          return adaptationFromVerdict(action.agentId, action.type, executed, verdict);
+        });
+        const patterns = detectBehavioralPatterns(adaptations, new Set(evaluationHistory.map(e => e.action.agentId)).size);
+        const narrative = generateAdaptationNarrative(patterns);
+        res.writeHead(200);
+        res.end(JSON.stringify({ patterns, narrative, adaptations: adaptations.length, agents: new Set(evaluationHistory.map(e => e.action.agentId)).size }));
+        return;
+      }
+
+      // ── Serve viz static files ──
+      if (req.method === 'GET' && vizDir) {
+        const reqPath = url === '/' || url === '/index.html' ? '/index.html' : url;
+        const filePath = join(vizDir, reqPath);
+        // Prevent path traversal
+        if (filePath.startsWith(vizDir) && serveStaticFile(res, filePath)) return;
+      }
+
+      // Fallback: if no viz is built, show a helpful message
+      if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<html><body style="background:#0a0a0a;color:#e2e8f0;font-family:monospace;padding:40px">
+          <h2>NeuroVerse Demo Server</h2>
+          <p>API is running. Build the viz to see the Governance Observation Deck:</p>
+          <pre style="color:#8b5cf6">npm run build:viz</pre>
+          <p style="color:#64748b">Then refresh this page.</p>
+          <p style="margin-top:20px">API endpoints:</p>
+          <pre style="color:#64748b">POST /api/v1/policy    — Set rules
+POST /api/v1/evaluate  — Guard evaluation
+GET  /api/v1/events    — SSE governance feed
+GET  /api/v1/behavioral — Behavioral analysis
+POST /api/v1/simulate  — Launch simulation</pre>
+        </body></html>`);
         return;
       }
 

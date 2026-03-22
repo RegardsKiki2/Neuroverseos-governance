@@ -19,67 +19,10 @@
  */
 
 import type { GuardVerdict, GuardStatus, IntentRecord } from '../contracts/guard-contract';
+import type { Adaptation, BehavioralPattern, NetworkContext, ActionCategory } from '../contracts/behavioral-contract';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-/** Categories of agent actions for behavioral shift tracking */
-export type ActionCategory =
-  | 'amplifying'   // share, post, retweet, broadcast
-  | 'passive'      // scroll, idle, observe
-  | 'engaging'     // reply, comment, discuss
-  | 'corrective'   // report, fact-check, flag
-  | 'transactional' // buy, sell, trade
-  | 'creative'     // generate, compose, draft
-  | 'analytical'   // analyze, research, investigate
-  | 'unknown';
-
-/** A classified behavioral adaptation — what an agent did instead */
-export interface Adaptation {
-  /** Agent identifier */
-  agentId: string;
-
-  /** What the agent intended to do */
-  intendedAction: string;
-
-  /** What the agent actually did (after governance) */
-  executedAction: string;
-
-  /** Named behavioral shift category */
-  shiftType: string;
-
-  /** Governance status that caused the shift */
-  verdict: GuardStatus;
-
-  /** Rule that caused the shift */
-  ruleId?: string;
-
-  /** Human-readable reason */
-  reason?: string;
-}
-
-/** An emergent behavioral pattern detected across multiple agents */
-export interface BehavioralPattern {
-  /** Pattern type identifier */
-  type: string;
-
-  /** Human-readable description */
-  description: string;
-
-  /** Pattern strength (0-1), based on fraction of agents affected */
-  strength: number;
-
-  /** Number of agents exhibiting this pattern */
-  agentsAffected: number;
-}
-
-/** Network-level context for narrative generation */
-export interface NetworkContext {
-  mood?: string;
-  misinfoLevel?: number;
-  totalAgents?: number;
-  totalActions?: number;
-  [key: string]: unknown;
-}
+// Re-export contract types so existing consumers don't break
+export type { ActionCategory, Adaptation, BehavioralPattern, NetworkContext } from '../contracts/behavioral-contract';
 
 // ─── Action Category Classification ─────────────────────────────────────────
 

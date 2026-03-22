@@ -13,6 +13,9 @@ import { readFileSync, readdirSync, readFile } from 'fs';
 import { join } from 'path';
 import { evaluateGuard } from '../src/engine/guard-engine';
 import { evaluateCondition } from '../src/engine/condition-engine';
+import { govern, actionToGuardEvent } from '../src/runtime/govern';
+import { classifyAdaptation, adaptationFromVerdict, detectBehavioralPatterns, generateAdaptationNarrative } from '../src/engine/behavioral-engine';
+import type { AgentAction } from '../src/runtime/types';
 import { validateWorld } from '../src/engine/validate-engine';
 import { parseWorldMarkdown } from '../src/engine/bootstrap-parser';
 import { emitWorldDefinition } from '../src/engine/bootstrap-emitter';
@@ -2121,5 +2124,89 @@ describe('Improve Engine — broken world', () => {
     const report = improveWorld(brokenWorld);
     const fixes = report.suggestions.filter(s => s.category === 'fix');
     expect(fixes.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Phase 5.3: Integration Tests for New Chains ────────────────────────────
+
+describe('govern() Bridge Chain', () => {
+  it('converts AgentAction to GuardEvent and returns a verdict', () => {
+    const action: AgentAction = {
+      agentId: 'test_agent',
+      type: 'delete_data',
+      description: 'Delete user database',
+      magnitude: 0.9,
+    };
+    const event = actionToGuardEvent(action);
+    expect(event.intent).toBe('Delete user database');
+    expect(event.tool).toBe('delete_data');
+    expect(event.roleId).toBe('test_agent');
+  });
+
+  it('govern() evaluates against a loaded world and returns GuardVerdict', async () => {
+    const { loadWorldFromDirectory } = await import('../src/loader/world-loader');
+    const action: AgentAction = {
+      agentId: 'test_agent',
+      type: 'publish_post',
+      description: 'Publish a blog post',
+      magnitude: 0.5,
+    };
+    const worldPath = join(__dirname, '..', 'docs', 'worlds', 'configurator-governance');
+    const world = await loadWorldFromDirectory(worldPath);
+    const verdict = govern(action, world);
+    expect(verdict).toHaveProperty('status');
+    expect(verdict).toHaveProperty('evidence');
+    expect(['ALLOW', 'BLOCK', 'PAUSE', 'MODIFY', 'PENALIZE', 'REWARD', 'NEUTRAL']).toContain(verdict.status);
+  });
+});
+
+describe('Behavioral Engine Chain', () => {
+  it('classifies adaptation categories correctly', () => {
+    expect(classifyAdaptation('share', 'idle')).toBe('amplification_suppressed');
+    expect(classifyAdaptation('report', 'report')).toBe('unchanged');
+  });
+
+  it('builds adaptations from verdicts', () => {
+    const verdict = {
+      status: 'BLOCK' as const,
+      reason: 'Blocked by test rule',
+      evidence: { worldId: 'test', worldName: 'Test', worldVersion: '1.0', evaluatedAt: Date.now(), invariantsSatisfied: 0, invariantsTotal: 0, guardsMatched: [], rulesMatched: [], enforcementLevel: 'standard' },
+    };
+    const adaptation = adaptationFromVerdict('agent_1', 'share', 'idle', verdict);
+    expect(adaptation.agentId).toBe('agent_1');
+    expect(adaptation.intendedAction).toBe('share');
+    expect(adaptation.executedAction).toBe('idle');
+    expect(adaptation.shiftType).toBe('amplification_suppressed');
+  });
+
+  it('detects behavioral patterns from adaptations', () => {
+    const verdict = {
+      status: 'BLOCK' as const,
+      reason: 'Blocked',
+      evidence: { worldId: 'test', worldName: 'Test', worldVersion: '1.0', evaluatedAt: Date.now(), invariantsSatisfied: 0, invariantsTotal: 0, guardsMatched: [], rulesMatched: [], enforcementLevel: 'standard' },
+    };
+    // Create 4 agents all suppressed → should detect coordinated silence
+    const adaptations = ['a1', 'a2', 'a3', 'a4'].map(id =>
+      adaptationFromVerdict(id, 'share', 'idle', verdict)
+    );
+    const patterns = detectBehavioralPatterns(adaptations, 4);
+    expect(patterns.length).toBeGreaterThan(0);
+    const silence = patterns.find(p => p.type === 'coordinated_silence');
+    expect(silence).toBeDefined();
+  });
+
+  it('generates narrative from patterns', () => {
+    const verdict = {
+      status: 'BLOCK' as const,
+      reason: 'Blocked',
+      evidence: { worldId: 'test', worldName: 'Test', worldVersion: '1.0', evaluatedAt: Date.now(), invariantsSatisfied: 0, invariantsTotal: 0, guardsMatched: [], rulesMatched: [], enforcementLevel: 'standard' },
+    };
+    const adaptations = ['a1', 'a2', 'a3', 'a4'].map(id =>
+      adaptationFromVerdict(id, 'share', 'idle', verdict)
+    );
+    const patterns = detectBehavioralPatterns(adaptations, 4);
+    const narrative = generateAdaptationNarrative(patterns);
+    expect(typeof narrative).toBe('string');
+    expect(narrative.length).toBeGreaterThan(0);
   });
 });
