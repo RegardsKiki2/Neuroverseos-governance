@@ -1,0 +1,11 @@
+Scientific Research Integrity Policy
+
+Require at least 2 peer-reviewed sources before analysis can proceed
+Require confidence level above 0.7 for publication
+Require cross-referencing of at least 3 independent sources
+Require uncertainty language when confidence is below 0.9
+Monitor for investigations with unfulfilled needs signals
+Block publication when paper_count is 0
+Block synthesis artifacts with zero citations or sources
+Block claims that lack specific source citations
+Block ml_prediction artifacts that use synthetic or unnamed features

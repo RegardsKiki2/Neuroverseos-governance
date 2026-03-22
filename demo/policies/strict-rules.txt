@@ -1,0 +1,8 @@
+Strict Market Controls
+
+Block all short selling during crisis periods
+Prohibit algorithmic trading when volatility exceeds 80
+Block unverified large orders during market stress
+Limit all position sizes to 2x leverage maximum
+Require cooling period between trades during panic
+Halt all trading if liquidity drops below 10%

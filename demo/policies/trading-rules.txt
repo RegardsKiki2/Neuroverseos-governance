@@ -1,0 +1,8 @@
+Market Stability Policy
+
+Block panic selling during extreme volatility
+Limit leverage to 5x during elevated market stress
+Maintain minimum liquidity floor at 15% of baseline
+Require all large position changes to be reported
+Slow down algorithmic trading when contagion is spreading
+Monitor cross-market correlation for systemic risk

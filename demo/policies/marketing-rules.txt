@@ -1,0 +1,8 @@
+Block campaigns that target users under 18
+Penalize agents using misleading product claims
+Block promotions with fake urgency ("limited time only" without actual deadline)
+Require disclosure when content is sponsored or paid
+Halt campaign when negative sentiment exceeds 60%
+Penalize repetitive posting of identical promotional content
+Reward authentic user testimonials and honest reviews
+Block astroturfing (coordinated fake grassroots campaigns)
