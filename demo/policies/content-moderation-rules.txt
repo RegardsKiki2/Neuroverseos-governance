@@ -1,0 +1,8 @@
+Block content containing hate speech or targeted harassment
+Penalize accounts that repeatedly post flagged content
+Halt viral spread of content under active review
+Require human review for content reported by 3+ users
+Block coordinated inauthentic behavior patterns
+Reward users who flag harmful content accurately
+Penalize engagement farming (rage bait, outrage amplification)
+Block automated reposting from accounts created in last 24 hours

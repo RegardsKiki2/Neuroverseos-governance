@@ -1,0 +1,7 @@
+Block posts that amplify unverified claims
+Block sharing content with influence above 0.5 when is_misinfo is true
+Penalize agents that share without verifying sources
+Halt cascade when misinfo_level exceeds 40%
+Reward agents that report misinformation
+Block bot agents from creating posts
+Penalize agents with credibility below 0.2 from posting
