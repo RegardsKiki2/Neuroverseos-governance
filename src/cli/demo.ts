@@ -32,7 +32,7 @@ import {
   handleListPresets,
 } from '../engine/api';
 import { govern, writeTempWorld } from '../runtime/govern';
-import { loadWorld } from '../loader/world-loader';
+import { loadWorld, loadBundledWorld, DEFAULT_BUNDLED_WORLD } from '../loader/world-loader';
 import { resolveWorldPath } from '../loader/world-resolver';
 import type { AgentAction } from '../runtime/types';
 import type { WorldDefinition } from '../types';
@@ -82,7 +82,7 @@ Same evaluateGuard() as \`neuroverse guard\`. ONE engine. ONE path.
   let activeWorld: WorldDefinition | null = null;
   let activeSimulation: ChildProcess | null = null;
 
-  // If a world was specified, load it
+  // Load world: explicit flag, resolved path, or bundled default
   if (worldName) {
     try {
       const worldPath = await resolveWorldPath(worldName);
@@ -93,6 +93,11 @@ Same evaluateGuard() as \`neuroverse guard\`. ONE engine. ONE path.
     } catch {
       process.stderr.write(`  Warning: Could not load world "${worldName}"\n`);
     }
+  }
+  if (!activeWorld) {
+    // No world specified or load failed — use bundled default so demo always works
+    activeWorld = await loadBundledWorld(DEFAULT_BUNDLED_WORLD);
+    process.stderr.write(`  Using default world: ${DEFAULT_BUNDLED_WORLD}\n`);
   }
 
   async function syncPolicyToWorld(): Promise<void> {

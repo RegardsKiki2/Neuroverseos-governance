@@ -124,3 +124,64 @@ export async function loadWorld(worldPath: string): Promise<WorldDefinition> {
 
   throw new Error(`Cannot load world from: ${worldPath} — expected a directory`);
 }
+
+/**
+ * Default bundled world name used when no world is specified.
+ */
+export const DEFAULT_BUNDLED_WORLD = 'coding-agent';
+
+/**
+ * Load a bundled .nv-world.md world by name.
+ *
+ * Searches for the world file in dist/worlds/ and src/worlds/ relative to
+ * the package root. Parses the markdown through the bootstrap pipeline
+ * (parseWorldMarkdown → emitWorldDefinition) to produce a WorldDefinition.
+ *
+ * This allows CLI tools (playground, demo) to work out of the box with
+ * a default world when no --world flag is provided.
+ */
+export async function loadBundledWorld(name: string = DEFAULT_BUNDLED_WORLD): Promise<WorldDefinition> {
+  const { readFile } = await import('fs/promises');
+  const { join, dirname } = await import('path');
+  const { existsSync } = await import('fs');
+  const { fileURLToPath } = await import('url');
+  const { parseWorldMarkdown } = await import('../engine/bootstrap-parser');
+  const { emitWorldDefinition } = await import('../engine/bootstrap-emitter');
+
+  const filename = `${name}.nv-world.md`;
+
+  // Resolve package root from this file's location
+  let packageRoot: string;
+  try {
+    const thisFile = typeof __dirname !== 'undefined'
+      ? __dirname
+      : dirname(fileURLToPath(import.meta.url));
+    // loader/ is one level under src/ or dist/
+    packageRoot = join(thisFile, '..', '..');
+  } catch {
+    packageRoot = process.cwd();
+  }
+
+  // Search order: dist/worlds/, src/worlds/
+  const candidates = [
+    join(packageRoot, 'dist', 'worlds', filename),
+    join(packageRoot, 'src', 'worlds', filename),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      const markdown = await readFile(candidate, 'utf-8');
+      const parsed = parseWorldMarkdown(markdown);
+      if (!parsed.world) {
+        throw new Error(`Failed to parse bundled world: ${candidate}`);
+      }
+      const { world } = emitWorldDefinition(parsed.world);
+      return world;
+    }
+  }
+
+  throw new Error(
+    `Bundled world "${name}" not found. Searched:\n` +
+    candidates.map(c => `  ${c}`).join('\n'),
+  );
+}
