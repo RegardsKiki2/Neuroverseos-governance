@@ -1,6 +1,6 @@
 {
   "name": "@neuroverseos/governance",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Deterministic governance engine for AI agents — enforce worlds (permanent rules) and plans (mission constraints) with full audit trace",
   "license": "Apache-2.0",
   "type": "module",
