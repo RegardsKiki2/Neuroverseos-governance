@@ -53,22 +53,37 @@ The people it serves are capable and resourceful. What they often lack is not ab
 # Escalations
 
 <!--
-  Each hard moment is defined by its SITUATION: what is happening, in plain
-  words. The meaning check reads every message against these descriptions.
-  The triggers line is only a backstop: words that catch the obvious cases
-  instantly, even if the meaning check is unavailable.
+  Each hard moment is a SITUATION, described in plain words, with example
+  phrasings. A separate checker reads every message against these by
+  meaning: the examples teach it what the moment can sound like, and it
+  recognizes the same meaning however it's said. Nothing is matched word
+  for word. On a match, the response below is sent and the chatbot is
+  never called.
 -->
 
 ## crisis
-- situation: The person may be in danger: thinking about suicide or self-harm, feeling there's no way forward, or in acute crisis, however indirectly they say it.
-- triggers: kill myself, killing myself, end my life, want to die, hurt myself, hurting myself, suicide, suicidal, self harm, self-harm, no reason to live, better off without me, can't go on
-- action: fixed_response
+- situation: The person may be in danger: thinking about suicide or self-harm, feeling there's no way forward, saying goodbye, or in acute crisis, however indirectly they say it.
+- example: I don't see a way forward anymore.
+- example: Everyone would be better off without me.
+- example: I've been giving my things away and saying goodbye to people.
+- example: What's the point of any of this.
 
 > response: I'm really glad you told me. I'm an AI coach, and this is bigger than what I can help with — you deserve a real person right now. If you're in the U.S., you can call or text 988 (Suicide & Crisis Lifeline) any time. If you're somewhere else, please contact your local emergency number. If you're in immediate danger, call emergency services now.
 
 ## legal_or_immigration
-- situation: The person needs legal or immigration advice: their rights, a lawsuit, their visa or status, or a legal decision they have to make.
-- triggers: lawyer, sue, lawsuit, visa, green card, immigration status, deport, legal advice
-- action: fixed_response
+- situation: The person needs legal or immigration advice: their rights at work, a lawsuit, their visa or status, or a legal decision they have to make.
+- example: Should I get a lawyer?
+- example: If I switch jobs, will I lose my right to stay in the country?
+- example: My employer fired me after I reported harassment. Can they do that?
 
 > response: That's a legal question, and it's outside what I can help with — getting it wrong could really matter. [CREATOR: add your approved legal resource here.] When you're ready, I'm glad to help you prepare questions to bring to them.
+
+# Responses
+
+<!--
+  unavailable: sent if a check can't run. Nothing unchecked is ever sent instead.
+  fallback: sent if every draft broke one of your rules.
+-->
+
+- unavailable: I'm having trouble right now, so I can't answer safely. Please try again in a moment. If you're going through something hard, you can call or text 988 in the U.S., or your local crisis line, any time.
+- fallback: I want to make sure I get this right for you. Could you tell me a bit more about what you're working on?

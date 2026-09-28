@@ -3,12 +3,10 @@
  *
  *   npm run check-rules
  *
- * Checks the front desk and the editor, and says which layer caught each
- * message: the meaning check (the main one) or the word check (the backstop).
- *
- * With an Anthropic API key set, both layers run and every test counts.
- * Without one, only the word checks run; tests that need the meaning check
- * are listed as "not checked" rather than passed or failed.
+ * 1. Reads the rulebook and shows how every part of it is enforced, with a
+ *    warning for any rule that is only "asked" (prompt-only).
+ * 2. Runs every test through the same meaning checks the chatbot uses.
+ *    Needs the API key: there are no word lists to fall back on.
  *
  * No chatbot replies are generated here. The "Try in the app" messages are
  * listed for the creator to try and judge by hand.
@@ -18,10 +16,20 @@
 
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { editor, frontDesk, loadRulebook, type MeaningChecks, type Rulebook } from './governance';
-import { claudeAvailable, claudeChecks } from './claude-checks';
+import {
+  checkMoments,
+  checkRules,
+  describeEnforcement,
+  parseChatRulebook,
+  type ChatRulebook,
+} from '@neuroverseos/governance/chat';
+import { claudeAvailable, claudeJudge } from './claude-models';
 
 const GOVERNANCE_DIR = 'governance';
+
+let passed = 0;
+let failed = 0;
+let notChecked = 0;
 
 function findRulebook(): string {
   const arg = process.argv[2];
@@ -39,139 +47,126 @@ function findRulebook(): string {
 
 function sections(markdown: string): { title: string; items: string[] }[] {
   return markdown
+    .replace(/<!--[\s\S]*?-->/g, '')
     .split(/^## /m)
     .slice(1)
     .map((block) => {
       const [title, ...rest] = block.split('\n');
-      const items = rest.filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim());
-      return { title: title.trim(), items };
+      return { title: title.trim(), items: rest.filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trim()) };
     });
 }
 
-let passed = 0;
-let failed = 0;
-let notChecked = 0;
-
-const tag = (by: string) => (by === 'meaning' ? 'by meaning' : 'by words');
-
-async function frontDeskShouldCatch(rulebook: Rulebook, name: string, messages: string[], checks: MeaningChecks) {
-  if (!rulebook.escalations.some((e) => e.id === name)) {
+async function hardMoment(rulebook: ChatRulebook, expected: string | null, messages: string[]) {
+  if (expected && !rulebook.moments.some((m) => m.id === expected)) {
     failed++;
-    console.log(`  ✗ tests.md mentions "${name}", but your rulebook has no hard moment with that name.`);
+    console.log(`  ✗ tests.md mentions "${expected}", but your rulebook has no hard moment with that name.`);
     return;
   }
   for (const message of messages) {
-    const { result, meaningCheck } = await frontDesk(rulebook, message, checks);
-    if (result?.escalationId === name) {
-      passed++;
-      console.log(`  ✓ "${message}" → ${name} (${tag(result.caughtBy)})`);
-    } else if (result) {
-      failed++;
-      console.log(`  ✗ "${message}" went to ${result.escalationId} instead of ${name}.`);
-    } else if (meaningCheck !== 'ran') {
+    try {
+      const { momentId, why } = await checkMoments(claudeJudge, rulebook.moments, message);
+      if (momentId === expected) {
+        passed++;
+        console.log(`  ✓ "${message}" → ${expected ?? 'goes to the chatbot'}`);
+      } else {
+        failed++;
+        console.log(
+          expected
+            ? `  ✗ "${message}" was ${momentId ? `seen as "${momentId}"` : 'NOT recognized'} (${why}). ` +
+                `Make the "${expected}" situation clearer, or add an example like this one.`
+            : `  ✗ "${message}" was caught as "${momentId}" (${why}). Make that situation description more specific.`,
+        );
+      }
+    } catch (err) {
       notChecked++;
-      console.log(`  ○ "${message}" — no trigger words; needs the meaning check (${meaningCheck === 'failed' ? 'it failed to run' : 'no API key set'}).`);
-    } else {
-      failed++;
-      console.log(`  ✗ "${message}" was NOT caught — the AI would have answered it. Make the "${name}" situation description clearer.`);
+      console.log(`  ○ "${message}" — couldn't check: ${(err as Error).message}`);
     }
   }
 }
 
-async function frontDeskShouldLetThrough(rulebook: Rulebook, messages: string[], checks: MeaningChecks) {
-  for (const message of messages) {
-    const { result } = await frontDesk(rulebook, message, checks);
-    if (!result) {
-      passed++;
-      console.log(`  ✓ "${message}" → goes to the chatbot`);
-    } else {
+async function replies(rulebook: ChatRulebook, expected: string | null, drafts: string[]) {
+  const checked = rulebook.rules.filter((r) => r.check === 'meaning');
+  if (expected) {
+    const rule = rulebook.rules.find((r) => r.id === expected);
+    if (!rule) {
       failed++;
-      console.log(
-        `  ✗ "${message}" was caught as ${result.escalationId} (${tag(result.caughtBy)}: ${result.why}). ` +
-          (result.caughtBy === 'words'
-            ? 'Make that hard moment\'s trigger phrases more specific.'
-            : 'Make that hard moment\'s situation description more specific.'),
-      );
+      console.log(`  ✗ tests.md mentions rule "${expected}", but your rulebook has no rule with that id.`);
+      return;
+    }
+    if (rule.check !== 'meaning') {
+      failed++;
+      console.log(`  ✗ "${expected}" is prompt-only, so nothing checks it. Remove its prompt-only mark to have it checked.`);
+      return;
     }
   }
-}
-
-async function editorShouldCatch(rulebook: Rulebook, ruleId: string, replies: string[], checks: MeaningChecks) {
-  if (!rulebook.invariants.some((r) => r.id === ruleId) && ruleId !== 'unapproved_resource') {
-    failed++;
-    console.log(`  ✗ tests.md mentions rule "${ruleId}", but your rulebook has no rule with that id.`);
-    return;
-  }
-  for (const reply of replies) {
-    const { findings, meaningCheck } = await editor(rulebook, reply, '(test)', checks);
-    const hit = findings.find((f) => f.ruleId === ruleId);
-    if (hit) {
-      passed++;
-      console.log(`  ✓ "${reply}" → breaks ${ruleId} (${tag(hit.caughtBy)})`);
-    } else if (meaningCheck !== 'ran') {
+  for (const draft of drafts) {
+    try {
+      const broken = await checkRules(claudeJudge, checked, draft, '(test)');
+      if (expected ? broken.some((b) => b.ruleId === expected) : broken.length === 0) {
+        passed++;
+        console.log(`  ✓ "${draft}" → ${expected ? `breaks ${expected}` : 'allowed'}`);
+      } else {
+        failed++;
+        console.log(
+          expected
+            ? `  ✗ "${draft}" was NOT caught breaking ${expected}. Make that rule's wording clearer about the behavior.`
+            : `  ✗ "${draft}" was caught for ${broken[0].ruleId} (${broken[0].why}), but it's a good reply.`,
+        );
+      }
+    } catch (err) {
       notChecked++;
-      console.log(`  ○ "${reply}" — needs the meaning check (${meaningCheck === 'failed' ? 'it failed to run' : 'no API key set'}).`);
-    } else {
-      failed++;
-      console.log(`  ✗ "${reply}" was NOT caught breaking ${ruleId}. Make that rule's wording clearer about the behavior.`);
-    }
-  }
-}
-
-async function editorShouldLetThrough(rulebook: Rulebook, replies: string[], checks: MeaningChecks) {
-  for (const reply of replies) {
-    const { findings } = await editor(rulebook, reply, '(test)', checks);
-    if (findings.length === 0) {
-      passed++;
-      console.log(`  ✓ "${reply}" → allowed`);
-    } else {
-      failed++;
-      const f = findings[0];
-      console.log(`  ✗ "${reply}" was caught for ${f.ruleId} (${tag(f.caughtBy)}: ${f.why}), but it's a good reply.`);
+      console.log(`  ○ "${draft}" — couldn't check: ${(err as Error).message}`);
     }
   }
 }
 
 async function main() {
-  const rulebookPath = findRulebook();
-  let rulebook: Rulebook;
-  try {
-    rulebook = loadRulebook(rulebookPath);
-  } catch (err) {
-    console.error(`✗ Your rulebook (${rulebookPath}) couldn't be read:\n  ${(err as Error).message}`);
+  const path = findRulebook();
+  const { rulebook, issues } = parseChatRulebook(readFileSync(path, 'utf8'));
+
+  for (const i of issues.filter((x) => x.severity === 'error')) console.log(`✗ ${i.message}`);
+  if (!rulebook || issues.some((i) => i.severity === 'error')) {
+    console.log(`\n✗ Your rulebook (${path}) can't be used until these are fixed.`);
     process.exit(1);
   }
 
-  const checks: MeaningChecks = claudeAvailable() ? claudeChecks : {};
-  console.log(`✓ Rulebook loaded: ${rulebookPath}`);
-  console.log(
-    `  ${rulebook.invariants.length} never-break rules, ` +
-      `${rulebook.lens?.directives.length ?? 0} personality rules, ` +
-      `${rulebook.escalations.length} hard moments (${rulebook.escalations.map((e) => e.id).join(', ')})`,
-  );
-  console.log(
-    claudeAvailable()
-      ? '  Meaning checks: ON (each test makes a small AI call)\n'
-      : '  Meaning checks: OFF (no ANTHROPIC_API_KEY set) — only the word backstop is tested\n',
-  );
+  console.log(`✓ Rulebook loaded: ${path}\n`);
+  console.log('How each part of your rulebook is enforced:');
+  for (const line of describeEnforcement(rulebook)) {
+    console.log(`  ${line.enforcedBy.startsWith('prompt') ? '⚠' : '•'} ${line.ref}: ${line.enforcedBy}`);
+  }
+  const warnings = issues.filter((i) => i.severity === 'warning');
+  if (warnings.length) {
+    console.log('\nWarnings:');
+    for (const w of warnings) console.log(`  ⚠ ${w.message}`);
+  }
 
-  const tests = readFileSync(join(GOVERNANCE_DIR, 'tests.md'), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  if (!claudeAvailable()) {
+    console.log(
+      '\n○ The fire drill checks by meaning, which needs your API key. There are no word lists to ' +
+        'fall back on. Set ANTHROPIC_API_KEY in your .env file, then run this again.',
+    );
+    process.exit(2);
+  }
+
+  console.log('\nRunning the fire drill (each test is a small AI call)...\n');
+  const tests = readFileSync(join(GOVERNANCE_DIR, 'tests.md'), 'utf8');
   const manual: string[] = [];
 
   for (const { title, items } of sections(tests)) {
     let m: RegExpMatchArray | null;
-    if ((m = title.match(/^Front desk should catch:\s*(.+)$/i))) {
-      console.log(`Front desk should catch — ${m[1]}:`);
-      await frontDeskShouldCatch(rulebook, m[1].trim(), items, checks);
-    } else if (/^Front desk should let through$/i.test(title)) {
-      console.log('Front desk should let these through to the chatbot:');
-      await frontDeskShouldLetThrough(rulebook, items, checks);
-    } else if ((m = title.match(/^Editor should catch:\s*(.+)$/i))) {
-      console.log(`Editor should catch replies that break ${m[1]}:`);
-      await editorShouldCatch(rulebook, m[1].trim(), items, checks);
-    } else if (/^Editor should let through$/i.test(title)) {
-      console.log('Editor should let these good replies through:');
-      await editorShouldLetThrough(rulebook, items, checks);
+    if ((m = title.match(/^Hard moment:\s*(.+)$/i))) {
+      console.log(`Should get your "${m[1].trim()}" response:`);
+      await hardMoment(rulebook, m[1].trim(), items);
+    } else if (/^Not a hard moment$/i.test(title)) {
+      console.log('Should go to the chatbot:');
+      await hardMoment(rulebook, null, items);
+    } else if ((m = title.match(/^Breaks:\s*(.+)$/i))) {
+      console.log(`Replies that should be caught breaking ${m[1].trim()}:`);
+      await replies(rulebook, m[1].trim(), items);
+    } else if (/^Keeps every rule$/i.test(title)) {
+      console.log('Good replies that should be allowed:');
+      await replies(rulebook, null, items);
     } else if (/^Try in the app$/i.test(title)) {
       manual.push(...items);
       continue;
@@ -182,17 +177,17 @@ async function main() {
     console.log('');
   }
 
-  if (manual.length > 0) {
+  if (manual.length) {
     console.log('Try these in the app and judge the replies yourself:');
     for (const item of manual) console.log(`  • ${item}`);
     console.log('');
   }
 
-  console.log(`${passed} passed · ${failed} failed · ${notChecked} not checked`);
+  console.log(`${passed} passed · ${failed} failed · ${notChecked} couldn't be checked`);
   if (failed > 0) console.log('✗ Fix the rulebook, then run this again.');
-  else if (notChecked > 0) console.log('○ Everything checked passed. Set ANTHROPIC_API_KEY to run the meaning checks too.');
+  else if (notChecked > 0) console.log('○ Some checks couldn\'t run. Run this again in a moment.');
   else console.log('✓ All checks passed.');
-  process.exit(failed === 0 ? 0 : 1);
+  process.exit(failed === 0 && notChecked === 0 ? 0 : 1);
 }
 
 main();

@@ -65,9 +65,9 @@ upfront about which is which, because that difference is the whole lesson.
   for a Node.js app; Claude adapts them to other setups).
 - **An Anthropic API key from your own account** for the meaning checks and
   the chatbot's replies. You set it up yourself, in a file on your own
-  computer. Claude will never ask you to paste it into the chat. Without a
-  key, the word checks still run, and the skill tells you what that leaves
-  untested.
+  computer. Claude will never ask you to paste it into the chat. Every check
+  is by meaning, so without a key nothing is checked and nothing unchecked
+  is sent: your chatbot shows its "having trouble" message instead.
 
 ## What's in here
 
@@ -77,8 +77,8 @@ upfront about which is which, because that difference is the whole lesson.
 | `governance/govern-my-chatbot.nv-world.md` | The skill's own rulebook, shown to you as a worked example |
 | `hooks/rulebook-guard.mjs` | The hook that makes Claude ask before changing any rulebook |
 | `templates/coach.nv-world.md` | An example rulebook for a first-gen career coach. It shows the shape only; Claude replaces everything with your answers |
-| `templates/governance.ts` | The four layers: front desk, instructions, editor, and the retry and fallback |
-| `templates/claude-checks.ts` | The meaning checks and the chatbot's replies, using Claude |
+| `templates/chatbot.ts` | Your governed chatbot: loads your rulebook and runs every message through [`@neuroverseos/governance/chat`](https://github.com/NeuroverseOS/Neuroverseos-governance/tree/main/src/chat) |
+| `templates/claude-models.ts` | The checker (Claude Haiku 4.5) and the chatbot (Claude Opus 5.5) |
 | `templates/tests.md` | Starter fire drill: messages and replies that should and shouldn't be caught |
 | `templates/check-my-rules.ts` | Runs the fire drill (`npm run check-rules`) and explains the results in plain language |
 | `templates/break-it.ts` | The break-my-chatbot challenge (`npm run break-it`) |

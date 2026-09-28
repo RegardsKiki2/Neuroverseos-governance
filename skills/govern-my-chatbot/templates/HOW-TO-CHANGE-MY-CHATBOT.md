@@ -27,7 +27,9 @@ holds it to that.
 | A habit it should have | `# Lenses` → lines starting with `>` | `> behavior_shaping: End every reply with one small next step.` |
 | What a hard moment is | `# Escalations` → `## [crisis]` → `- situation:` | Describe what's happening, in plain words |
 | What it says in a hard moment | `# Escalations` → `> response:` | My exact words, sent without the AI |
-| Backstop words for a hard moment | `# Escalations` → `- triggers:` | Obvious phrases, caught instantly |
+| Examples that teach the checker a hard moment | `# Escalations` → `- example:` lines | Ways someone might say it, including indirect ones. Never matched word for word |
+| What people see if the checker can't check | `# Responses` → `- unavailable:` | My words; nothing unchecked is sent instead |
+| What people see if every draft broke a rule | `# Responses` → `- fallback:` | My words |
 
 I only change the words. I leave the symbols (`-`, `>`, `#`, and the backticks
 around ids) as they are; the app uses them to read the file.
@@ -40,21 +42,25 @@ around ids) as they are; the app uses them to read the file.
    be caught, and one that shouldn't. Include one that says it indirectly.
 3. **Run the fire drill:** in the terminal, in my project folder:
    `npm run check-rules`
-   - ✓ passed · ✗ failed (it says what to change) · ○ not checked (the
-     meaning check needs my API key set)
-4. **Try to break it:** `npx tsx break-it.ts "a message that might get past it"`
+   - First it shows how every rule is enforced. ⚠ marks a rule that is only
+     "asked", not checked.
+   - ✓ passed · ✗ failed (it says what to change) · ○ couldn't be checked
+     (try again in a moment)
+4. **Try to break it:** `npm run break-it -- "a message that might get past it"`
    Each attempt shows which layer stopped it, or that nothing did.
 5. **Save my change** (ask Claude to commit it if I use git).
 
 ## The four layers, in one breath
 
-- **Front desk:** checks each message *before* the AI sees it. If it's a hard
-  moment, by meaning or by the backstop words, my exact response is sent and
-  the AI is never involved.
-- **Instructions:** my rulebook is handed to the AI fresh on every message.
-- **Editor:** a separate check reads every reply before it's sent and asks
-  "does this break a rule?" If it does, the AI tries again; if it still does,
-  a safe fallback is sent instead.
+- **Hard moments:** the checker reads each message *before* the chatbot sees
+  it. If it means one of my hard moments, however it's said, my exact
+  response is sent and the chatbot is never involved.
+- **Instructions:** my rulebook is handed to the chatbot fresh on every message.
+- **Reply check:** the checker reads every reply before it's sent and asks
+  "does this break a rule?" If it does, the chatbot tries again; if it still
+  does, my fallback is sent instead.
+- **If the checker can't check:** my "unavailable" message is sent. Nothing
+  unchecked ever goes out.
 - **Fire drill & break-it:** my tests, and my own attempts to break it,
   before every launch and every change.
 

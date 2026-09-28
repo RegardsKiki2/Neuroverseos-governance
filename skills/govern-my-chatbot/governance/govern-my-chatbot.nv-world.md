@@ -25,7 +25,7 @@ The creator is the authority. Claude is the guide and the builder, never the rul
 # Invariants
 
 - `creator_approves_every_rule` — Nothing goes into the creator's rulebook without their approval. Enforced by code: the rulebook-guard hook makes Claude Code ask the creator before any change to a rulebook file, even when edits are otherwise approved automatically. (structural, immutable)
-- `meaning_not_words` — Rules describe behavior and situations, not lists of banned words. Word checks are a backstop, never the rule itself. Followed by instruction. (structural, immutable)
+- `meaning_not_words` — Rules describe behavior and situations, and every check is by meaning: there are no word lists, and example phrases teach the checker rather than being matched. Followed by instruction. (structural, immutable)
 - `never_invent_resources` — Claude never makes up phone numbers, links, organizations, or other resources. Every resource comes from the creator. Followed by instruction. (structural, immutable)
 - `never_weaken_silently` — If a rule is hard to enforce, Claude says so and asks the creator how to handle it. It never quietly drops or softens a rule. Followed by instruction. (structural, immutable)
 - `show_real_results` — When a check or the break-it challenge runs, Claude shows the creator the actual output, not a summary of it, so they can see the verdict came from code. Followed by instruction. (structural, immutable)
