@@ -58,6 +58,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./chat": {
+      "types": "./dist/chat/index.d.ts",
+      "import": "./dist/chat/index.js",
+      "require": "./dist/chat/index.cjs"
+    },
     "./adapters/mentraos": {
       "types": "./dist/adapters/mentraos.d.ts",
       "import": "./dist/adapters/mentraos.js",
@@ -125,7 +130,7 @@
   ],
   "scripts": {
     "prepare": "npm run build",
-    "build": "tsup src/index.ts src/types.ts src/cli/neuroverse.ts src/cli/plan.ts src/cli/run.ts src/cli/worldmodel.ts src/cli/radiant.ts src/adapters/index.ts src/adapters/langchain.ts src/adapters/openai.ts src/adapters/openclaw.ts src/adapters/express.ts src/adapters/autoresearch.ts src/adapters/deep-agents.ts src/adapters/mentraos.ts src/adapters/github.ts src/engine/guard-engine.ts src/engine/simulate-engine.ts src/engine/bootstrap-parser.ts src/engine/bootstrap-emitter.ts src/engine/worldmodel-parser.ts src/engine/worldmodel-compiler.ts src/spatial/index.ts src/admin/index.ts src/radiant/index.ts --format esm,cjs --dts --clean && npm run build:browser && cp src/worlds/*.nv-world.md dist/worlds/ && cp src/worlds/*.worldmodel.md dist/worlds/ && cp src/spatial/zones/*.nv-world.md dist/worlds/ && npm run build:viz",
+    "build": "tsup src/index.ts src/types.ts src/cli/neuroverse.ts src/cli/plan.ts src/cli/run.ts src/cli/worldmodel.ts src/cli/radiant.ts src/adapters/index.ts src/adapters/langchain.ts src/adapters/openai.ts src/adapters/openclaw.ts src/adapters/express.ts src/adapters/autoresearch.ts src/adapters/deep-agents.ts src/adapters/mentraos.ts src/adapters/github.ts src/engine/guard-engine.ts src/engine/simulate-engine.ts src/engine/bootstrap-parser.ts src/engine/bootstrap-emitter.ts src/engine/worldmodel-parser.ts src/engine/worldmodel-compiler.ts src/spatial/index.ts src/admin/index.ts src/radiant/index.ts src/chat/index.ts --format esm,cjs --dts --clean && npm run build:browser && cp src/worlds/*.nv-world.md dist/worlds/ && cp src/worlds/*.worldmodel.md dist/worlds/ && cp src/spatial/zones/*.nv-world.md dist/worlds/ && npm run build:viz",
     "build:browser": "tsup src/browser.ts --format iife --global-name NeuroVerse --outDir dist --no-dts",
     "build:viz": "vite build",
     "dev:viz": "vite dev",
