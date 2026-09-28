@@ -26,7 +26,7 @@
 import { readFileSync } from 'fs';
 import { parseWorldMarkdown } from '@neuroverseos/governance';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────────
 
 export interface Escalation {
   id: string;
@@ -78,7 +78,7 @@ export interface MeaningChecks {
 
 export type CaughtBy = 'meaning' | 'words';
 
-// ─── Load the rulebook ──────────────────────────────────────────────────────
+// ─── Load the rulebook ──────────────────────────────────────────────────────────
 
 export function loadRulebook(path: string): Rulebook {
   const markdown = readFileSync(path, 'utf8');
@@ -138,7 +138,7 @@ function parseEscalations(markdown: string): Escalation[] {
   });
 }
 
-// ─── ① Front desk ───────────────────────────────────────────────────────────
+// ─── ① Front desk ───────────────────────────────────────────────────────────────
 
 function normalize(text: string): string {
   return text
@@ -202,7 +202,7 @@ export async function frontDesk(
   }
 }
 
-// ─── ② Rules in ─────────────────────────────────────────────────────────────
+// ─── ② Rules in ─────────────────────────────────────────────────────────────────
 
 /**
  * Build the system prompt from the rulebook. Call on EVERY request, on the
@@ -237,7 +237,7 @@ export function buildSystemPrompt(rulebook: Rulebook): string {
   return parts.join('\n\n');
 }
 
-// ─── ③ Editor ───────────────────────────────────────────────────────────────
+// ─── ③ Editor ───────────────────────────────────────────────────────────────────
 
 /**
  * Word-level backstop checks on the AI's reply. Each entry names the rule it
@@ -299,7 +299,7 @@ export async function editor(
   }
 }
 
-// ─── Putting it together ────────────────────────────────────────────────────
+// ─── Putting it together ──────────────────────────────────────────────────────
 
 export const FALLBACK_REPLY =
   "I want to make sure I get this right for you. Could you tell me a bit more about what you're working on?";

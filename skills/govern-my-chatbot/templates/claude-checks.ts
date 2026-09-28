@@ -133,7 +133,7 @@ export const checkRules: RuleCheck = async (reply, rules, userMessage) => {
 
 export const claudeChecks: MeaningChecks = { situation: checkSituation, rules: checkRules };
 
-// ─── The chatbot ────────────────────────────────────────────────────────────
+// ─── The chatbot ──────────────────────────────────────────────────────────────
 
 /**
  * One chatbot turn. Uses server-side fallbacks so that if the model declines
