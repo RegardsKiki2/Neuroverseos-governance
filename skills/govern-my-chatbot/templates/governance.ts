@@ -18,7 +18,7 @@
 import { readFileSync } from 'fs';
 import { parseWorldMarkdown } from '@neuroverseos/governance';
 
-// ─── Load the rulebook ──────────────────────────────────────────────────────
+// ─── Load the rulebook ──────────────────────────────────────────────────────────
 
 export interface Escalation {
   id: string;
@@ -96,7 +96,7 @@ function parseEscalations(markdown: string): Escalation[] {
   });
 }
 
-// ─── ① Pre-check ────────────────────────────────────────────────────────────
+// ─── ① Pre-check ────────────────────────────────────────────────────────────────
 
 function normalize(text: string): string {
   return text
@@ -125,7 +125,7 @@ export function preCheck(
   return null;
 }
 
-// ─── ② Rules in ─────────────────────────────────────────────────────────────
+// ─── ② Rules in ─────────────────────────────────────────────────────────────────
 
 /**
  * Build the system prompt from the rulebook. Call on EVERY request, on the
@@ -159,7 +159,7 @@ export function buildSystemPrompt(rulebook: Rulebook): string {
   return parts.join('\n\n');
 }
 
-// ─── ③ Post-check ───────────────────────────────────────────────────────────
+// ─── ③ Post-check ───────────────────────────────────────────────────────────────
 
 /**
  * Plain-text checks on the AI's reply. Each entry names the invariant it
@@ -187,7 +187,7 @@ export function postCheck(reply: string): { invariantId: string } | null {
   return null;
 }
 
-// ─── Putting it together ────────────────────────────────────────────────────
+// ─── Putting it together ──────────────────────────────────────────────────────
 
 export const FALLBACK_REPLY =
   "I want to make sure I get this right for you. Could you tell me a bit more about what you're working on?";
