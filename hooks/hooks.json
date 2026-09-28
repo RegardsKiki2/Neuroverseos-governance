@@ -1,0 +1,27 @@
+{
+  "description": "govern-my-chatbot: Claude can't change a chatbot's rulebook (*.nv-world.md) without the creator's approval. Other files are ignored.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/govern-my-chatbot/hooks/rulebook-guard.mjs\" pre"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/skills/govern-my-chatbot/hooks/rulebook-guard.mjs\" post"
+          }
+        ]
+      }
+    ]
+  }
+}

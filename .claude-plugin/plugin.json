@@ -1,10 +1,18 @@
 {
   "name": "govern-my-chatbot",
-  "version": "0.1.0",
-  "description": "You know what you want your chatbot to do. This teaches you to program it to stay within your guidelines: Claude interviews you, writes your rules in your words, builds them into your app, and hands you the controls. No coding experience needed.",
-  "author": { "name": "NeuroverseOS" },
+  "version": "0.2.0",
+  "description": "You know what you want your chatbot to do. This Claude Code skill teaches you to program it to stay within your guidelines: Claude interviews you, writes your rules in your words, builds them into your app with checks that judge meaning (not just words), challenges you to break it, and hands you the controls. No coding experience needed.",
+  "author": {
+    "name": "NeuroverseOS"
+  },
   "homepage": "https://github.com/NeuroverseOS/Neuroverseos-governance/tree/main/skills/govern-my-chatbot",
   "repository": "https://github.com/NeuroverseOS/Neuroverseos-governance",
   "license": "Apache-2.0",
-  "keywords": ["governance", "chatbot", "ai-coach", "guardrails", "neuroverse"]
+  "keywords": [
+    "governance",
+    "chatbot",
+    "ai-coach",
+    "guardrails",
+    "neuroverse"
+  ]
 }

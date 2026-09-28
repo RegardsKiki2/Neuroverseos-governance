@@ -1,6 +1,8 @@
 {
   "name": "neuroverseos",
-  "owner": { "name": "NeuroverseOS" },
+  "owner": {
+    "name": "NeuroverseOS"
+  },
   "metadata": {
     "description": "Claude Code plugins from NeuroverseOS for governed AI."
   },
@@ -8,7 +10,7 @@
     {
       "name": "govern-my-chatbot",
       "source": "./",
-      "description": "You know what you want your chatbot to do. This teaches you to program it to stay within your guidelines: Claude interviews you, writes your rules in your words, builds them into your app, and hands you the controls. No coding experience needed.",
+      "description": "You know what you want your chatbot to do. This Claude Code skill teaches you to program it to stay within your guidelines: Claude interviews you, writes your rules in your words, builds them into your app with checks that judge meaning (not just words), challenges you to break it, and hands you the controls. No coding experience needed.",
       "category": "productivity"
     }
   ]
