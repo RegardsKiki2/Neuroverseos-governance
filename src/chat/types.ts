@@ -77,7 +77,7 @@ export interface EnforcementLine {
   enforcedBy: 'fixed response (checked by meaning before the chatbot)' | 'meaning check on every reply' | 'prompt only (asked, not checked)';
 }
 
-// ─── The turn pipeline ──────────────────────────────────────────────────────
+// ─── The turn pipeline ──────────────────────────────────────────────────────────
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
