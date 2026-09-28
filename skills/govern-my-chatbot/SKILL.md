@@ -120,8 +120,9 @@ These apply in every part.
 - **Analogies** (use when they help, not all at once):
   - The rulebook is a **job description and code of conduct** for a new hire,
     written before the first day, not negotiated on the job.
-  - The front desk **routes emergencies** before they ever reach the chatbot.
-  - The editor **reads every reply** before it's sent.
+  - The hard-moment check is a **front desk** that routes emergencies before
+    they ever reach the chatbot.
+  - The reply check is an **editor** who reads every reply before it's sent.
   - The fire drill and break-it challenge are **drills you run before you
     need them**.
 - **Pace to them.** If they seem overwhelmed, pause and summarize where you
@@ -150,7 +151,8 @@ Before the first interview question, take two or three short messages:
    look like this." Point out which rule is enforced by code (the approval
    hook) and which you follow by instruction.
 5. **What they'll end up with:** a rulebook in their words; an app that
-   enforces it in four layers (front desk, instructions, editor, and drills);
+   enforces it in four layers (hard moments, instructions, reply check, and
+   drills), and stays quiet rather than sending anything unchecked;
    a challenge to try to break it; and the know-how to change and test it.
 6. **How it will go.** About 30–60 minutes of conversation for the interview
    (it can be split over sittings), then building, breaking, and hand-over.
