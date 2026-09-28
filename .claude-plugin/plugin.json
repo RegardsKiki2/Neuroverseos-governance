@@ -1,10 +1,10 @@
 {
-  "name": "govern-my-ai",
+  "name": "govern-my-chatbot",
   "version": "0.1.0",
-  "description": "Teaches non-technical creators to govern the AI coach, tutor, or assistant they're building: interviews them, writes a NeuroVerse rulebook in their words, wires it into the app, and hands them the controls.",
+  "description": "You know what you want your chatbot to do. This teaches you to program it to stay within your guidelines: Claude interviews you, writes your rules in your words, builds them into your app, and hands you the controls. No coding experience needed.",
   "author": { "name": "NeuroverseOS" },
-  "homepage": "https://github.com/NeuroverseOS/Neuroverseos-governance/tree/main/skills/govern-my-ai",
+  "homepage": "https://github.com/NeuroverseOS/Neuroverseos-governance/tree/main/skills/govern-my-chatbot",
   "repository": "https://github.com/NeuroverseOS/Neuroverseos-governance",
   "license": "Apache-2.0",
-  "keywords": ["governance", "ai-coach", "guardrails", "neuroverse"]
+  "keywords": ["governance", "chatbot", "ai-coach", "guardrails", "neuroverse"]
 }

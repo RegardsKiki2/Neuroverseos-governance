@@ -46,5 +46,5 @@ around ids) as they are; the app uses them to read the file.
 
 ## Ask Claude for help
 
-> "Use the govern-my-ai skill. My coach did [what happened] and I wanted
+> "Use the govern-my-chatbot skill. My coach did [what happened] and I wanted
 > [what you wanted]. Help me find the rule and change it."

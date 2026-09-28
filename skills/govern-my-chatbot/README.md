@@ -1,10 +1,15 @@
-# Govern My AI — a Claude skill
+# Govern My Chatbot — a Claude skill
 
-You're building an AI coach, tutor, or assistant that has to stay true to
-**your** model. This skill makes Claude help you do that properly.
+**You know what you want your chatbot to do. But how do you program it to
+stay within your guidelines?**
+
+Telling an AI "please don't do that" isn't enough; it can be talked out of
+anything. This skill helps you turn your guidelines into rules your chatbot
+actually has to follow, whether it's a coach, tutor, mentor, or assistant
+that teaches **your** model. You don't need to know how to code.
 
 Claude will teach you as it goes, so by the end you understand how your
-coach is governed and can change the rules yourself. Claude will:
+chatbot stays within your guidelines and can change them yourself. Claude will:
 
 1. **Explain what governance is** and why it matters for the people you serve.
 2. **Interview you** one question at a time, in plain language, about your
@@ -30,19 +35,19 @@ as a plugin by typing these two commands into Claude Code:
 
 ```
 /plugin marketplace add NeuroverseOS/Neuroverseos-governance
-/plugin install govern-my-ai@neuroverseos
+/plugin install govern-my-chatbot@neuroverseos
 ```
 
-Then tell Claude: *"Use the govern-my-ai skill. I want to build a coach for my model."*
+Then tell Claude: *"Use the govern-my-chatbot skill. I want to build a coach for my model."*
 
-Or copy it in by hand: create `.claude/skills/govern-my-ai/` in your project
+Or copy it in by hand: create `.claude/skills/govern-my-chatbot/` in your project
 and copy `SKILL.md` and the `templates/` folder into it.
 
 **With Claude on claude.ai** (to do the interview and rulebook before you code):
 
 1. Download this folder as a zip.
 2. In Claude's settings, find **Skills** and upload the zip.
-3. Start a chat: *"Help me govern the AI coach I'm building."*
+3. Start a chat: *"Help me govern the chatbot I'm building."*
 
 ## What's in here
 

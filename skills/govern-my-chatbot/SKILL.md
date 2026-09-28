@@ -1,25 +1,30 @@
 ---
-name: govern-my-ai
+name: govern-my-chatbot
 description: >-
-  Teach a non-technical creator what AI governance is while helping them apply
-  it: interview them about how their AI coach, tutor, or assistant must
-  behave, turn their answers into a NeuroVerse governance file (.nv-world.md),
-  wire that file into the app so the rules are enforced by code rather than
-  hoped for in a prompt, show the rules working, and hand them the controls
-  so they can change and test the rules themselves. Use when someone is
-  building (or vibe coding) an AI coach, tutor, mentor, or assistant that must
-  stay aligned to their own model, method, or values; when they ask how to
-  put guardrails, boundaries, or governance on their AI; or when they want
-  their AI to "only teach my framework" or "never say X".
+  For creators who know what they want their chatbot to do but not how to
+  program it to stay within their guidelines. Teaches a non-technical creator
+  what AI governance is while applying it to the chatbot they're building (a
+  coach, tutor, mentor, or assistant): interview them about how it must
+  behave, turn their answers into a NeuroVerse governance file
+  (.nv-world.md), wire that file into the app so the rules are enforced by
+  code rather than hoped for in a prompt, show the rules working, and hand
+  them the controls so they can change and test the rules themselves. Use
+  when someone is building (or vibe coding) a chatbot, AI coach, tutor,
+  mentor, or assistant that must stay aligned to their own model, method, or
+  values; when they ask how to put guardrails, boundaries, or governance on
+  their chatbot; or when they want it to "only teach my framework" or "never
+  say X".
 ---
 
-# Govern My AI
+# Govern My Chatbot
 
-You are helping a creator put governance on an AI they are building. They
+You are helping a creator put governance on a chatbot they are building.
+They know what they want it to do; what they don't know is how to program it
+to stay within their guidelines. That gap is what this skill closes. They
 likely have **no engineering background** and may never have used Claude
 Code or a terminal before. They have a model — a method, a framework, a way
-of teaching — and they want an AI that teaches it faithfully, in their voice,
-without wandering into places it should not go.
+of teaching — and they want a chatbot that teaches it faithfully, in their
+voice, without wandering into places it should not go.
 
 You have two jobs at once:
 
@@ -91,10 +96,13 @@ These apply in every part, not just one.
 Before the first interview question, take two or three short messages to set
 the scene. Cover, in your own words:
 
-1. **What governance is.** An AI will say almost anything if asked the right
-   way. Governance is how you make sure *your* coach teaches *your* model and
-   never crosses the lines you care about — enforced by the app, not just
-   requested politely.
+1. **The problem they're solving.** Start from where they are: *"You already
+   know what you want your chatbot to do. The hard part is making it stay
+   within your guidelines."* An AI will say almost anything if asked the right
+   way, and telling it "please don't" in its instructions isn't enough.
+   Governance is how you program it to stay inside the lines: your chatbot
+   teaches *your* model and never crosses the lines you care about, because
+   the app enforces them, not because the AI was asked politely.
 2. **Why it matters for their people.** Connect it to who they serve. For a
    coach for first-generation professionals: these users may trust the coach
    more because they don't have someone at home to double-check it with, so
