@@ -14,7 +14,7 @@
 import type { ChatMessage, ChatRule, HardMoment, JudgeModel } from './types';
 
 export class JudgeUnavailableError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(message: string, readonly underlying?: unknown) {
     super(message);
     this.name = 'JudgeUnavailableError';
   }
